@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocPilot 教学报告 · 用 LangGraph 搭一个自纠正 RAG 助手</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#1f2328; --muted:#5c6672; --border:#dfe3e8; --soft:#f6f8fa;
+  --accent:#0969da; --accent-soft:#eaf3ff;
+  --green:#1a7f37; --green-soft:#e8f5ec;
+  --amber:#9a6700; --amber-soft:#fff6e0;
+  --red:#b42318; --red-soft:#fdecea;
+  --purple:#6639ba; --purple-soft:#f0e9ff;
+  --code-bg:#f7f9fb;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:15.5px; line-height:1.8; -webkit-font-smoothing:antialiased;
+}
+.wrap{display:flex; gap:36px; max-width:1320px; margin:0 auto; padding:0 28px}
+nav.toc{
+  position:sticky; top:0; align-self:flex-start; width:236px; flex:0 0 236px;
+  max-height:100vh; overflow-y:auto; padding:28px 0 40px; font-size:13px;
+  border-right:1px solid var(--border); margin-right:4px;
+}
+nav.toc h4{margin:18px 0 6px; font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted)}
+nav.toc a{display:block; padding:3px 10px 3px 0; color:#424a53; text-decoration:none; border-radius:4px}
+nav.toc a:hover{color:var(--accent); background:var(--accent-soft)}
+nav.toc a.sub{padding-left:12px; color:var(--muted); font-size:12.5px}
+main{flex:1 1 auto; min-width:0; max-width:960px; padding:28px 0 90px}
+
+h1{font-size:31px; line-height:1.35; margin:0 0 10px; letter-spacing:-.01em}
+h2{font-size:23px; margin:52px 0 14px; padding-bottom:9px; border-bottom:2px solid var(--border); letter-spacing:-.005em}
+h3{font-size:17.5px; margin:32px 0 10px}
+h4{font-size:15px; margin:22px 0 8px; color:#313a44}
+p{margin:11px 0}
+ul,ol{margin:11px 0; padding-left:24px}
+li{margin:5px 0}
+strong{font-weight:650}
+a{color:var(--accent)}
+hr{border:0; border-top:1px solid var(--border); margin:36px 0}
+
+/* 术语标注：虚线 + 悬停解释 */
+abbr.t{
+  text-decoration:none; border-bottom:1.5px dotted #9aa4ae; cursor:help;
+  color:#243b53; font-weight:600;
+}
+abbr.t:hover{background:#fff3bf; border-bottom-color:var(--amber)}
+
+code{font-family:"JetBrains Mono",Consolas,"Courier New",monospace; font-size:.87em;
+  background:var(--soft); border:1px solid var(--border); border-radius:4px; padding:1px 5px; color:#0a3069}
+pre{background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent);
+  border-radius:8px; padding:14px 16px; overflow-x:auto; margin:14px 0; font-size:13.2px; line-height:1.72}
+pre code{background:none; border:0; padding:0; color:var(--fg); font-size:13.2px}
+.k{color:#a626a4; font-weight:600}      /* 关键字 */
+.s{color:#0a7d33}                        /* 字符串 */
+.c{color:#8b949e; font-style:italic}     /* 注释 */
+.n{color:#b25000}                        /* 数字 */
+.f{color:#0550ae}                        /* 函数名 */
+.lab{position:absolute;top:8px;right:12px}
+.codewrap{position:relative}
+.codewrap>.tag{position:absolute; top:9px; right:14px; font-size:10.5px; letter-spacing:.06em;
+  color:#8b949e; text-transform:uppercase; font-family:monospace}
+
+/* 各类提示框 */
+.box{border-radius:8px; padding:13px 17px; margin:16px 0; border:1px solid; font-size:14.6px}
+.box p:first-child{margin-top:0}
+.box p:last-child{margin-bottom:0}
+.box .bt{font-weight:700; display:block; margin-bottom:5px; font-size:13.4px; letter-spacing:.02em}
+.tip{background:var(--green-soft); border-color:#b7e0c3}       .tip .bt{color:var(--green)}
+.warn{background:var(--amber-soft); border-color:#f0d99a}      .warn .bt{color:var(--amber)}
+.danger{background:var(--red-soft); border-color:#f5c2bd}      .danger .bt{color:var(--red)}
+.interview{background:var(--purple-soft); border-color:#d5c4f7} .interview .bt{color:var(--purple)}
+.note{background:var(--accent-soft); border-color:#bcd8f8}     .note .bt{color:var(--accent)}
+
+/* 阶段徽标 */
+.stage{display:inline-block; background:var(--accent); color:#fff; font-size:11.5px; font-weight:700;
+  padding:2px 9px; border-radius:20px; letter-spacing:.04em; vertical-align:2px; margin-right:8px}
+.stage.done{background:var(--green)}
+.stage.opt{background:var(--amber)}
+
+/* 表格 */
+table{border-collapse:collapse; width:100%; margin:15px 0; font-size:14px}
+th,td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+th{background:var(--soft); font-weight:650; font-size:13.2px}
+tbody tr:nth-child(even){background:#fcfdfe}
+
+/* 六段式骨架卡片 */
+.six{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px; margin:16px 0}
+.six div{background:var(--soft); border:1px solid var(--border); border-radius:7px; padding:9px 11px; font-size:13px}
+.six b{display:block; color:var(--accent); font-size:12px; letter-spacing:.03em; margin-bottom:2px}
+
+/* 流程图（纯 CSS，无依赖） */
+.flow{margin:18px 0; font-family:"JetBrains Mono",Consolas,monospace; font-size:13px; line-height:1.95}
+.flow .node{display:inline-block; border:1.5px solid var(--accent); background:#fff; color:#0a3069;
+  border-radius:6px; padding:2px 11px; font-weight:600; margin:2px 0}
+.flow .node.g{border-color:var(--green); color:var(--green); background:var(--green-soft)}
+.flow .node.a{border-color:var(--amber); color:var(--amber); background:var(--amber-soft)}
+.flow .node.p{border-color:var(--purple); color:var(--purple); background:var(--purple-soft)}
+.flow .arrow{color:#8b949e; padding:0 6px}
+.flow .lbl{color:var(--muted); font-size:12px}
+
+/* 封面 */
+.cover{background:linear-gradient(135deg,#eef5ff 0%,#f7f9fc 55%,#eefaf3 100%);
+  border:1px solid var(--border); border-radius:14px; padding:34px 34px 28px; margin:24px 0 8px}
+.cover h1{margin-top:0}
+.cover .sub{color:var(--muted); font-size:15px; margin:0 0 18px}
+.cover .meta{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+.cover .meta span{background:#fff; border:1px solid var(--border); border-radius:20px;
+  padding:4px 13px; font-size:12.5px; color:#424a53}
+
+.kv{display:grid; grid-template-columns:110px 1fr; gap:6px 14px; font-size:14px; margin:14px 0}
+.kv b{color:var(--muted); font-weight:600; font-size:13px}
+
+.small{font-size:13.4px; color:var(--muted)}
+.center{text-align:center}
+footer{max-width:960px; margin:0 auto; padding:30px 28px 60px; color:var(--muted); font-size:13px; border-top:1px solid var(--border)}
+
+@media (max-width:1000px){
+  nav.toc{display:none}
+  .wrap{padding:0 16px}
+  main{padding-top:18px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc">
+  <h4>开始</h4>
+  <a href="#cover">封面</a>
+  <a href="#howto">这份报告怎么用</a>
+  <a href="#ch0">0 · 五分钟看懂</a>
+  <a href="#ch1">1 · LangGraph 解决什么问题</a>
+  <a href="#ch2">2 · 环境搭建</a>
+  <a href="#ch3">3 · 术语逐个击破</a>
+  <h4>动手做</h4>
+  <a href="#s1">S1 · 最小状态图</a>
+  <a href="#s2">S2 · 会调工具的 Agent</a>
+  <a href="#s3">S3 · 手写 ReAct 循环</a>
+  <a href="#s4">S4 · 接入 RAG</a>
+  <a href="#s5">S5 · 自纠正循环 ★</a>
+  <a href="#s6">S6 · 记忆与人机协同 ★</a>
+  <a href="#s7">S7 · 界面与演示</a>
+  <h4>面试准备</h4>
+  <a href="#apA">附录 A · 术语速查表</a>
+  <a href="#apB">附录 B · 高频面试题 30 问</a>
+  <a href="#apC">附录 C · 报错急救包</a>
+  <a href="#apD">附录 D · 项目故事线</a>
+  <a href="#apE">附录 E · 自查清单</a>
+</nav>
+
+<main>
+
+<section class="cover" id="cover">
+  <h1>DocPilot 教学报告</h1>
+  <p class="sub">用 <strong>LangGraph</strong> 从零搭一个「自纠正 RAG 智能文档助手」<br>
+  顺手把面试要讲的东西全部准备好</p>
+
+  <div class="meta">
+    <span>📘 面向零基础</span>
+    <span>🔧 代码可直接运行</span>
+    <span>🎯 每个知识点配套面试题</span>
+    <span>🧩 8 个阶段，每阶段都跑得起来</span>
+  </div>
+</section>
+
+<section id="howto">
+<h2>这份报告怎么用</h2>
+
+<p>这不是一份"代码说明书"，而是一条<strong>两条线并行</strong>的路线：</p>
+
+<div class="six" style="grid-template-columns:1fr 1fr">
+  <div><b>主线一 · 教你搭</b>每一章都有可运行的代码，照着敲，跑起来看输出。</div>
+  <div><b>主线二 · 教你说</b>每个知识点后面都挂着「面试考点」，告诉你面试官会怎么问、该怎么答。</div>
+</div>
+
+<h3>每一章都是同一个骨架</h3>
+
+<div class="six">
+  <div><b>① 一句话目标</b>这章要解决什么问题</div>
+  <div><b>② 图示</b>数据怎么流动，先看图再看码</div>
+  <div><b>③ 代码</b>可以直接复制运行</div>
+  <div><b>④ 逐段拆解</b>为什么这么写，不这么写会怎样</div>
+  <div><b>⑤ 跑起来看什么</b>新手最缺的就是"跑完该看哪儿"</div>
+  <div><b>⑥ 🎯 面试考点</b>对应的问题 + 答题要点</div>
+</div>
+
+<div class="note box">
+  <span class="bt">💡 带虚线下划线的词是术语</span>
+  <p>比如 <abbr class="t" title="Reducer（归约函数）：决定同一个状态字段被多次写入时，该以谁为准 —— 覆盖？还是追加？">reducer</abbr>。
+  鼠标<strong>悬停</strong>上去会弹出解释，不用跳转。所有术语也都在
+  <a href="#apA">附录 A</a> 里汇总成了一张速查表，面试前扫一遍就行。</p>
+</div>
+
+<h3>代码在哪儿</h3>
+
+<p>报告的代码和项目里的文件是<strong>一一对应</strong>的，而且做了精简 ——
+报告里给你看最关键的 10~20 行，完整实现去对应文件里看。
+这样不会让你淹没在细节里，也不会出现"文档和代码对不上"的尴尬。</p>
+
+<p class="small">项目路径：<code>D:/makeLangGrap</code>　配套文档：<code>README.md</code></p>
+</section>
+
+
+<h2 id="ch0">第 0 章 · 五分钟看懂</h2>
+
+<h3>我们要做一个什么东西</h3>
+
+<p><strong>DocPilot</strong> 是一个"能查着自己家资料回答问题"的助手。听起来普通，但它有一个别人没有的特性：</p>
+
+<p style="font-size:16.5px; background:#fff6e0; border-left:4px solid #9a6700; padding:12px 18px; border-radius:0 8px 8px 0;">
+它能<strong>判断自己找的资料够不够用</strong>。不够就换个问法重新找一遍，而不是硬编一段答案糊弄你。
+</p>
+
+<h3>用户视角长这样</h3>
+
+<div class="flow">
+<span class="lbl">你问：</span>账号被锁了多久才能再登<br><br>
+<span class="node">① 路由</span> <span class="arrow">→</span> 判定"需要查资料"<br>
+<span class="node">② 检索</span> <span class="arrow">→</span> 用原问题召回 4 条，但都不太对<br>
+<span class="node a">③ 评分</span> <span class="arrow">→</span> 4.6 分，<span class="lbl">低于及格线 6.5</span><br>
+<span class="node a">④ 重写</span> <span class="arrow">→</span> 「账号被锁定 多久才能再登」<span class="lbl">（把口语换成文档用词）</span><br>
+<span class="node">② 检索</span> <span class="arrow">→</span> 重新召回，这次命中了正确文档<br>
+<span class="node g">③ 评分</span> <span class="arrow">→</span> 6.9 分，<span class="lbl">达标，继续</span><br>
+<span class="node">⑤ 生成</span> <span class="arrow">→</span> 带引用编号的答案<br>
+<span class="node p">⑥ 反思</span> <span class="arrow">→</span> 发现有"建议"类表述，<span class="lbl">属于敏感内容</span><br>
+<span class="node a">⑦ 人工审核</span> <span class="arrow">→</span> <strong>图暂停在这里</strong>，等人点通过<br>
+<span class="node g">⑧ 定稿</span> <span class="arrow">→</span> 输出最终答案
+</div>
+
+<p class="small">上面这段不是编的 —— 它是项目真实跑出来的执行轨迹，你在
+<a href="#s6">S6 章节</a>能看到一模一样的输出。</p>
+
+<h3>技术栈一览</h3>
+
+<table>
+<thead><tr><th style="width:110px">层</th><th style="width:190px">选型</th><th>为什么</th></tr></thead>
+<tbody>
+<tr><td>编排框架</td><td><strong>LangGraph</strong></td><td>项目主角，把流程画成图来跑</td></tr>
+<tr><td>大模型</td><td>DeepSeek / 通义千问</td><td>都兼容 OpenAI 协议，国内直连、便宜</td></tr>
+<tr><td>检索</td><td>BM25（默认）+ 向量检索（可选）</td><td>先零依赖跑通，再按需升级</td></tr>
+<tr><td>持久化</td><td>InMemorySaver → SqliteSaver</td><td>开发用内存，演示用文件</td></tr>
+<tr><td>界面</td><td>Streamlit</td><td>半天出流式界面，精力留给图设计</td></tr>
+</tbody>
+</table>
+
+<div class="tip box">
+  <span class="bt">✅ 一个刻意的取舍</span>
+  <p>默认检索用的是 <strong>BM25</strong>（关键词匹配），不是向量检索。
+  因为向量检索要下载几百 MB 的模型，新手第一天就卡在环境上，学习的正反馈直接断了。</p>
+  <p>BM25 是纯 Python 实现、装完就能跑、30 秒看到效果。等主线跑通，
+  改一行配置就能切成向量检索。<strong>这个"先跑通再优化"的判断本身，就是面试可以讲的工程决策。</strong></p>
+</div>
+
+
+<h2 id="ch1">第 1 章 · LangGraph 到底在解决什么问题</h2>
+
+<h3>先说清楚它和 LangChain 的关系</h3>
+
+<p>很多人在这儿绕不清。一句话：</p>
+
+<p style="font-size:16px;"><strong>LangChain 是"工具箱"，LangGraph 是"流水线调度器"。</strong></p>
+
+<table>
+<thead><tr><th style="width:130px"></th><th>LangChain</th><th>LangGraph</th></tr></thead>
+<tbody>
+<tr><td>核心抽象</td><td>链（Chain）、组件（Component）</td><td>图（Graph）、节点（Node）、状态（State）</td></tr>
+<tr><td>流程形状</td><td>一条线，从前往后</td><td>任意有向图，可以有分支和环</td></tr>
+<tr><td>适合什么</td><td>"输入 → 处理 → 输出"的固定流程</td><td>需要判断、循环、暂停、恢复的 Agent 流程</td></tr>
+<tr><td>能不能暂停等人</td><td>基本不行</td><td>可以，而且能停几天</td></tr>
+</tbody>
+</table>
+
+<p>它们不是取代关系 —— LangGraph 内部照样在用 LangChain 的消息类型、模型接口、工具抽象。
+你在这个项目里会同时用到两者。</p>
+
+<h3>为什么 Agent 需要"图"，而不是"链"</h3>
+
+<p>想想一个人干活的真实过程：</p>
+
+<ul>
+  <li>看到问题 → 判断要不要查资料（<strong>分支</strong>）</li>
+  <li>查了资料 → 发现不对 → 换个词再查（<strong>循环</strong>）</li>
+  <li>写好了 → 拿不准 → 请同事确认一下（<strong>暂停 + 恢复</strong>）</li>
+</ul>
+
+<p>"链"只能表达第一条。第二条和第三条，链做不到 ——
+因为链的定义就是"从前往后走一遍，走完就结束"。</p>
+
+<p>而图天然支持这三件事：<strong>节点</strong>是步骤，<strong>边</strong>是流向，
+<strong>条件边</strong>是岔路口，<strong>回边</strong>是循环。</p>
+
+<h3>核心心智模型：图 = 状态 + 节点 + 边</h3>
+
+<table>
+<thead><tr><th style="width:110px">概念</th><th style="width:150px">英文</th><th>人话解释</th></tr></thead>
+<tbody>
+<tr><td><strong>状态</strong></td><td>State</td><td>一张在整个流程里传来传去的<strong>共享便签纸</strong>。每个节点都能读，也能往上写。</td></tr>
+<tr><td><strong>节点</strong></td><td>Node</td><td>一个<strong>函数</strong>。读便签、干一件事、往便签上写点东西，然后返回。</td></tr>
+<tr><td><strong>边</strong></td><td>Edge</td><td>规定<strong>下一步去哪儿</strong>。普通边是"一定去"，条件边是"看情况去"。</td></tr>
+</tbody>
+</table>
+
+<p>就这三个概念。整份报告后面讲的所有东西，都是这三个概念的组合变化。</p>
+
+<h3>一张图看懂我们的项目</h3>
+
+<div class="flow">
+<span class="node">START</span> <span class="arrow">→</span> <span class="node">① 路由判断</span><br>
+<span class="arrow" style="padding-left:60px">├─</span> <span class="lbl">不用查资料（闲聊）</span> <span class="arrow">──────→</span> <span class="node">⑤ 生成答案</span><br>
+<span class="arrow" style="padding-left:60px">└─</span> <span class="lbl">需要查资料</span> <span class="arrow">→</span> <span class="node">② 检索</span> <span class="arrow">→</span> <span class="node a">③ 评分</span><br>
+<span style="padding-left:200px"></span><span class="lbl">① 分数不够</span> <span class="arrow">→</span> <span class="node a">④ 重写查询</span> <span class="arrow">↺ 回到 ②</span><br>
+<span style="padding-left:200px"></span><span class="lbl">② 分数够</span> <span class="arrow">→</span> <span class="node">⑤ 生成答案</span> <span class="arrow">→</span> <span class="node p">⑥ 反思自查</span><br>
+<span style="padding-left:210px"></span><span class="arrow">├─</span> <span class="lbl">敏感内容</span> <span class="arrow">→</span> <span class="node a">⑦ 人工审核</span> <span class="arrow">→</span> <span class="node g">⑧ 定稿</span> <span class="arrow">→</span> <span class="node">END</span><br>
+<span style="padding-left:210px"></span><span class="arrow">└─</span> <span class="lbl">普通内容</span> <span class="arrow">──────────────→</span> <span class="node g">⑧ 定稿</span> <span class="arrow">→</span> <span class="node">END</span>
+</div>
+
+<p class="small">别看这张图有点大 —— 拆开看每个部分都很简单，我们会在 S1～S6 里一部分一部分加上去。</p>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：LangGraph 和 LangChain 什么关系？为什么要用 LangGraph？</strong></p>
+  <p>答题要点分三层：</p>
+  <ol>
+    <li><strong>定位不同</strong>：LangChain 提供模型、工具、消息这些"零件"；LangGraph 提供把这些零件按有向图组织起来跑的"调度器"。两者是互补，不是替代。</li>
+    <li><strong>能力边界</strong>：链式结构只能表达线性流程。Agent 本质上需要"判断—行动—再判断"的循环，还经常需要人工介入，这些链做不到。</li>
+    <li><strong>最实际的差异</strong>：图可以把执行状态持久化，所以能暂停、能续跑、能回退。链做不到这一点。</li>
+  </ol>
+</div>
+
+<h2 id="ch2">第 2 章 · 环境搭建</h2>
+
+<h3>① 一句话目标</h3>
+<p>把环境弄干净，跑出一句"模型回话"，确认整条链路是通的。这一步没有任何 LangGraph 知识，但卡住的人最多。</p>
+
+<h3>② 需要什么</h3>
+
+<table>
+<thead><tr><th style="width:150px">东西</th><th style="width:180px">版本要求</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>Python</td><td>3.11 或更高</td><td>3.13 也能跑，本项目实测 3.13.14</td></tr>
+<tr><td>pip</td><td>自带</td><td>—</td></tr>
+<tr><td>网络</td><td>能访问 PyPI</td><td>国内建议配镜像加速</td></tr>
+<tr><td>API Key</td><td>可选</td><td>不配也行，项目内置离线模拟模型</td></tr>
+</tbody>
+</table>
+
+<h3>③ 动手做</h3>
+
+<h4>第 1 步：建虚拟环境</h4>
+
+<div class="codewrap"><span class="tag">bash</span>
+<pre><code><span class="c"># 进入项目目录</span>
+cd D:/makeLangGrap
+
+<span class="c"># 创建虚拟环境（就一个文件夹，删掉不留痕）</span>
+python -m venv .venv
+
+<span class="c"># 激活它 —— Windows：</span>
+.venv\Scripts\activate
+<span class="c"># macOS / Linux：</span>
+<span class="c"># source .venv/bin/activate</span>
+
+<span class="c"># 激活成功后，命令行前面会出现 (.venv) 字样</span></code></pre>
+</div>
+
+<div class="note box">
+  <span class="bt">💡 为什么一定要用虚拟环境？</span>
+  <p>因为不同项目依赖的库版本会打架。比如 FaceWork 项目要用某个版本的 PyQt，
+  DocPilot 要用某个版本的 LangChain，装在一起就容易互相踩踏。</p>
+  <p>虚拟环境相当于给每个项目单独开一个"隔离房间"。这也是我推荐的第一条工程习惯。</p>
+</div>
+
+<h4>第 2 步：装依赖</h4>
+
+<div class="codewrap"><span class="tag">bash</span>
+<pre><code>pip install -r requirements.txt
+
+<span class="c"># 如果下载慢或超时，加上国内镜像：</span>
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple</code></pre>
+</div>
+
+<p>主要装了这几样（<code>requirements.txt</code> 里有注释说明每一项的用途）：</p>
+
+<table>
+<thead><tr><th style="width:210px">包</th><th>干什么的</th></tr></thead>
+<tbody>
+<tr><td><code>langgraph</code></td><td>主角，图编排框架</td></tr>
+<tr><td><code>langchain-core</code></td><td>底层抽象：消息类型、模型接口、工具接口</td></tr>
+<tr><td><code>langchain-openai</code></td><td>用 OpenAI 协议连 DeepSeek / 通义千问</td></tr>
+<tr><td><code>langchain-community</code></td><td>社区组件（本项目主要用它的一些工具函数）</td></tr>
+<tr><td><code>rank-bm25</code></td><td>关键词检索算法</td></tr>
+<tr><td><code>streamlit</code></td><td>界面</td></tr>
+<tr><td><code>python-dotenv</code></td><td>读取 <code>.env</code> 配置文件</td></tr>
+</tbody>
+</table>
+
+<h4>第 3 步：拿一个 API Key（不想花钱可以跳过）</h4>
+
+<ol>
+  <li>打开 <a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com</a>，注册并登录</li>
+  <li>左侧菜单找到 <strong>API Keys</strong>，点"创建 API Key"</li>
+  <li>复制那串 <code>sk-...</code> 开头的字符串 —— <strong>只显示一次，务必当场保存</strong></li>
+  <li>充值少量金额（几块钱就能跑很久，这个项目跑一轮大概花几分钱）</li>
+</ol>
+
+<div class="warn box">
+  <span class="bt">⚠️ 三条铁律</span>
+  <p>1. Key <strong>绝对不能</strong>写死在代码里，也绝对不能提交到 GitHub。<br>
+     2. 本项目已经把 <code>.env</code> 加进了 <code>.gitignore</code>，你可以放心往里填。<br>
+     3. 万一不小心泄露了，第一件事是去平台<strong>立刻吊销</strong>这个 Key。</p>
+</div>
+
+<h4>第 4 步：配置</h4>
+
+<div class="codewrap"><span class="tag">bash</span>
+<pre><code><span class="c"># 复制一份配置模板</span>
+copy .env.example .env      <span class="c"># Windows</span>
+<span class="c"># cp .env.example .env      # macOS / Linux</span></code></pre>
+</div>
+
+<p>然后编辑 <code>.env</code>，改成你要用的模型：</p>
+
+<div class="codewrap"><span class="tag">ini</span>
+<pre><code>DOCPILOT_PROVIDER=deepseek
+DEEPSEEK_API_KEY=sk-把这里换成你自己的key</code></pre>
+</div>
+
+<p class="small">就这两行。其他配置项都有合理默认值，先不用管。</p>
+
+<h4>第 5 步：验证</h4>
+
+<div class="codewrap"><span class="tag">bash</span>
+<pre><code>python src/docpilot/graphs/s1_basic.py</code></pre>
+</div>
+
+<p>看到类似下面的输出，就说明环境通了：</p>
+
+<div class="codewrap"><span class="tag">输出</span>
+<pre><code>==============================================================
+S1 最小状态图 —— 图的形状：
+==============================================================
+提问：接口调用报错 RATE_LIMITED 是什么意思？
+==============================================================
+
+── 执行轨迹 ──
+  ① 分类：判定为「技术问题」
+  ② 回答：已调用模型生成原始回答
+  ③ 润色：已拼接分类前缀（answer 被覆盖）
+
+── 最终状态里的字段 ──
+  question = '接口调用报错 RATE_LIMITED 是什么意思？'
+  category = '技术问题'
+  answer   = '【技术问题】...'</code></pre>
+</div>
+
+<h3>⑤ 跑起来看什么</h3>
+
+<p>这一章不看逻辑，只看三件事：</p>
+<ol>
+  <li><strong>有没有报错</strong> —— 报错就翻 <a href="#apC">附录 C 报错急救包</a>，新手 90% 的错都在那 15 条里</li>
+  <li><strong>那三行轨迹</strong> —— 说明三个节点按顺序都跑到了</li>
+  <li><strong>最后那个 answer</strong> —— 它包含了分类前缀，说明第三个节点真的改写了状态</li>
+</ol>
+
+<div class="tip box">
+  <span class="bt">✅ 没有 API Key 怎么办？</span>
+  <p>把 <code>.env</code> 里的 <code>DOCPILOT_PROVIDER</code> 改成 <code>mock</code>，
+  项目会启用内置的离线模拟模型。它按规则模拟大模型的行为，
+  <strong>整条链路（路由、检索、评分、重写、生成、反思、人工审核）全都跑得通</strong>，
+  不需要联网、不需要花钱。</p>
+  <p>面试现场万一网络抽风、或者 Key 突然失效，这个开关能救场。</p>
+</div>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：你怎么管理不同环境的配置和密钥？</strong></p>
+  <p>答：用 <code>.env</code> 加 <code>python-dotenv</code>，密钥只在本地存在，
+  <code>.env</code> 进 <code>.gitignore</code>；代码里通过一个统一的配置对象读取，
+  业务代码不直接碰环境变量。这样换环境只改配置，不动代码。</p>
+  <p>再加一句会显得更专业：生产环境一般用密钥管理服务（KMS / Secrets Manager），
+  <code>.env</code> 只适合本地开发。</p>
+</div>
+
+
+<h2 id="ch3">第 3 章 · 术语逐个击破</h2>
+
+<p>这一章只讲<strong>最核心的 10 个词</strong>，每个都配一个类比。
+剩下的术语在 <a href="#apA">附录 A</a> 里汇总成表，需要时去查。</p>
+
+<h3>1 · State（状态）</h3>
+<p><strong>类比：一张在会议室里传阅的共享便签纸。</strong></p>
+<p>每个参会的人（节点）拿到它，看一眼上面写了什么（读状态），
+写上自己的结论（写状态），然后传给下一个人。
+整场会议下来，便签上积累了完整的信息。</p>
+<p class="small">在代码里它是一个 <abbr class="t" title="TypedDict：Python 的类型提示写法，用普通 dict 存数据，但声明了每个键应该是什么类型。它只在开发时帮你查错，运行时不会真的校验">TypedDict</abbr>，
+每个字段就是便签上的一行。</p>
+
+<h3>2 · Node（节点）</h3>
+<p><strong>类比：一个工人，只干一件事。</strong></p>
+<p>它是一个普通的 Python 函数：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">retrieve</span>(state) -> <span class="k">dict</span>:
+    <span class="s">"""读状态 → 干活 → 返回要更新的字段"""</span>
+    query = state[<span class="s">"question"</span>]          <span class="c"># 读</span>
+    chunks = retriever.retrieve(query)      <span class="c"># 干活</span>
+    <span class="k">return</span> {<span class="s">"documents"</span>: chunks}           <span class="c"># 写（返回增量，不是完整状态！）</span></code></pre>
+</div>
+<p>注意最后一行：返回的是<strong>增量</strong>，不是完整状态。这是新手第一个容易绕的地方。</p>
+
+<h3>3 · Edge（边）</h3>
+<p><strong>类比：两个工位之间的传送带。</strong></p>
+<p><code>add_edge("A", "B")</code> 的意思是" A 干完一定轮到 B "。
+传送带是固定的，没有判断。</p>
+
+<h3>4 · Conditional Edge（条件边）</h3>
+<p><strong>类比：路口的红绿灯，或者流水线上的质检员。</strong></p>
+<p>它不看"上一步是什么"，而是<strong>读一眼当前状态</strong>，然后决定往哪走：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">after_grade</span>(state) -> <span class="k">str</span>:
+    <span class="k">if</span> state[<span class="s">"retrieval_score"</span>] >= <span class="n">6.5</span>:
+        <span class="k">return</span> <span class="s">"generate"</span>     <span class="c"># 资料够用，去生成答案</span>
+    <span class="k">return</span> <span class="s">"rewrite"</span>          <span class="c"># 资料不行，去重写查询</span></code></pre>
+</div>
+<p>返回的字符串，会通过一张映射表对应到目标节点名。
+<strong>有了条件边，流程才有了"判断"。</strong></p>
+
+<h3>5 · Reducer（归约函数）★</h3>
+<p><strong>类比：多人同时往同一张便签上写字，该听谁的？</strong></p>
+<p>这是新手最容易踩坑、也是面试最容易考到的一个概念。</p>
+<p>节点返回的字段要合并进已有状态，合并规则就是 reducer：</p>
+<table>
+<thead><tr><th style="width:230px">写法</th><th style="width:110px">语义</th><th>典型场景</th></tr></thead>
+<tbody>
+<tr><td><code>某字段: int</code></td><td><strong>覆盖</strong></td><td>计数器、当前答案、当前查询 —— 新值盖掉旧值</td></tr>
+<tr><td><code>messages: Annotated[list, add_messages]</code></td><td><strong>追加</strong></td><td>多轮对话历史 —— 新消息接在旧消息后面</td></tr>
+<tr><td><code>数字: Annotated[int, operator.add]</code></td><td><strong>累加</strong></td><td>用了几次工具、总共多少 token</td></tr>
+</tbody>
+</table>
+<p class="small">那个 <code>Annotated[...]</code> 是 Python 的语法，作用是在类型标注上"挂"一条额外信息（这里挂的就是合并规则）。</p>
+
+<div class="danger box">
+  <span class="bt">❌ 一个真实踩过的坑</span>
+  <p>我一开始给"执行轨迹"字段也加了 <code>add</code> 类型的 reducer，觉得"日志嘛，当然要累加"。
+  结果加上检查点之后炸了：</p>
+  <p>因为检查点会让同一个会话的状态<strong>跨轮保留</strong>，第二轮提问时第一轮的轨迹还在，
+  第三轮又叠上去，几轮之后界面上就是一坨。</p>
+  <p><strong>教训是：加 reducer 之前先问自己一句 —— 这个字段是希望"跨轮累积"，还是"每轮重来"？</strong>
+  历史消息要累积，执行轨迹要重来。项目里对应的处理在 <code>src/docpilot/state.py</code> 的注释里写得很清楚。</p>
+</div>
+
+<h3>6 · Checkpointer（检查点）</h3>
+<p><strong>类比：Word 的自动保存。</strong></p>
+<p>图每往前走一步，就把当前完整状态存一份，用 <code>thread_id</code> 当作存档编号。</p>
+<p>带来三个能力：</p>
+<ul>
+  <li><strong>多轮记忆</strong> —— 同一个 <code>thread_id</code> 再调用，会自动把历史读回来</li>
+  <li><strong>断点续跑</strong> —— 进程崩了、人走开了，状态都还在</li>
+  <li><strong>时间旅行</strong> —— 能列出所有历史存档，回到任意一步重跑</li>
+</ul>
+<table>
+<thead><tr><th style="width:170px">实现</th><th style="width:120px">存在哪</th><th>什么时候用</th></tr></thead>
+<tbody>
+<tr><td><code>InMemorySaver</code></td><td>内存</td><td>开发和测试，重启就没了</td></tr>
+<tr><td><code>SqliteSaver</code></td><td>本地文件</td><td>单机演示够用</td></tr>
+<tr><td><code>PostgresSaver</code></td><td>PostgreSQL</td><td>生产环境标配，支持并发</td></tr>
+</tbody>
+</table>
+
+<h3>7 · thread_id（会话编号）</h3>
+<p><strong>类比：聊天软件里的"会话窗口"。</strong></p>
+<p>同一个 <code>thread_id</code> 反复调用 → 接着上次聊。
+换一个 <code>thread_id</code> → 全新会话，互不影响。</p>
+<p class="small">它本质上就是检查点表里的一个主键。两个用户用两个不同的 ID，
+状态天然隔离，不需要额外加锁 —— 这是 LangGraph 支持多用户的设计基础。</p>
+
+<h3>8 · interrupt() 与 Command(resume=) ★</h3>
+<p><strong>类比：审批流程。</strong></p>
+<p>你的申请提交上去，流程走到"领导审批"这一步就<strong>停住了</strong>。
+人事专员去问领导，领导说"同意"，流程从刚才停的地方继续走。</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="c"># 停住：把待审内容交给外面的人</span>
+<span class="k">from</span> langgraph.types <span class="k">import</span> interrupt
+
+<span class="k">def</span> <span class="f">human_review</span>(state):
+    decision = <span class="f">interrupt</span>(<span class="s">"请审核这段内容是否可发送"</span>)   <span class="c"># ← 执行到这里暂停</span>
+    <span class="k">return</span> {<span class="s">"approved"</span>: decision == <span class="s">"approve"</span>}       <span class="c"># ← 恢复后从这里继续</span>
+
+<span class="c"># 恢复：把人的决定送回去，它就成了 interrupt() 的返回值</span>
+graph.<span class="f">invoke</span>(<span class="f">Command</span>(resume=<span class="s">"approve"</span>), config=config)</code></pre>
+</div>
+
+<div class="warn box">
+  <span class="bt">⚠️ 两个必须记住的前提</span>
+  <p>1. 必须<strong>先配 checkpointer</strong>，否则状态没地方存，<code>interrupt</code> 直接报错。<br>
+     2. 必须用<strong>同一个 <code>thread_id</code></strong> 恢复，它是找回这次对话的唯一线索。</p>
+  <p>还有一个容易踩的细节：节点恢复时是<strong>从头重新执行</strong>的，
+  不是从 <code>interrupt()</code> 那一行接着跑。所以 <code>interrupt()</code> 之前
+  别放"发消息、写数据库"这类有副作用的操作，否则会重复执行。</p>
+</div>
+
+<h3>9 · Tool（工具）与 ToolNode</h3>
+<p><strong>类比：模型是"动嘴的"，工具是"动手的"。</strong></p>
+<p>模型本身不会执行任何代码，它只会输出一句"我想调用 xxx，参数是 yyy"。
+真正去跑函数的是 <code>ToolNode</code>。这个分工一定要分清楚。</p>
+<p>写工具时有两条铁律：</p>
+<ul>
+  <li><strong>函数的 docstring 就是给模型看的说明书</strong>。写"查询知识库"没用，要写清楚"什么时候该用它、参数怎么填"。</li>
+  <li><strong>参数必须写类型注解</strong>，框架据此自动生成 JSON Schema 给模型看。</li>
+</ul>
+
+<h3>10 · recursion_limit（递归上限）</h3>
+<p><strong>类比：游乐场过山车的"最多坐 25 分钟"提示。</strong></p>
+<p>图里有环，就有无限循环的风险。LangGraph 默认最多走 25 步，
+超过就抛 <code>GraphRecursionError</code>。</p>
+<p class="small">注意 LangGraph 里的"一步" = 访问一个节点。
+一次工具往返要算两步（模型节点 + 工具节点）。
+所以 25 步其实只有大约 12 次工具调用。</p>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：reducer 是干什么的？能举个例子说明不加会怎样吗？</strong></p>
+  <p>这是本章最重要的一题，建议连着"踩坑故事"一起讲：</p>
+  <ol>
+    <li>先给定义：reducer 决定同一字段被多次写入时的合并语义，默认是覆盖。</li>
+    <li>再说必要性：多轮对话必须用 <code>add_messages</code>，否则第二轮的历史消息会把第一轮覆盖掉，模型瞬间失忆。</li>
+    <li>最后讲那个坑（<strong>这段最能体现你真的做过</strong>）：不是所有列表都该加 reducer。执行轨迹字段加了 <code>add</code> 之后，
+        因为检查点会跨轮保留状态，轨迹会一轮轮叠加。所以判断标准是"这个字段要跨轮累积，还是每轮重置"。</li>
+  </ol>
+</div>
+
+<h2 id="s1">S1 · 最小状态图</h2>
+<p><span class="stage">阶段 1</span> <span class="small">对应文件：<code>src/docpilot/graphs/s1_basic.py</code>　跑它：<code>python src/docpilot/graphs/s1_basic.py</code></span></p>
+
+<h3>① 一句话目标</h3>
+<p>先别管大模型聪不聪明、检索准不准。<strong>只搞明白一件事：状态是怎么在节点之间流动的。</strong></p>
+
+<h3>② 图示</h3>
+<div class="flow">
+<span class="node">START</span> <span class="arrow">→</span>
+<span class="node">① 分类</span> <span class="arrow">→</span>
+<span class="node">② 回答</span> <span class="arrow">→</span>
+<span class="node">③ 润色</span> <span class="arrow">→</span>
+<span class="node">END</span>
+</div>
+<p class="small">一条直线，三个节点，没有任何分支和循环。先建立最朴素的肌肉记忆。</p>
+
+<h3>③ 代码</h3>
+
+<p><strong>第一件事：声明状态长什么样。</strong></p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">from</span> typing <span class="k">import</span> Annotated, TypedDict
+
+<span class="k">class</span> <span class="f">BasicState</span>(TypedDict, total=<span class="k">False</span>):
+    question: <span class="k">str</span>                          <span class="c"># 用户的问题</span>
+    category: <span class="k">str</span>                          <span class="c"># 分类结果</span>
+    answer:   <span class="k">str</span>                          <span class="c"># 回答（会被覆盖两次）</span>
+    trace: Annotated[<span class="k">list</span>[<span class="k">dict</span>], operator.add]  <span class="c"># 执行轨迹（累加）</span></code></pre>
+</div>
+<p class="small"><code>total=False</code> 表示所有字段都是可选的 —— 初始调用时不用把所有字段都填上。</p>
+
+<p><strong>第二件事：写节点。</strong>一个节点就是一个函数：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">classify</span>(state: BasicState) -> <span class="k">dict</span>:
+    question = state.get(<span class="s">"question"</span>, <span class="s">""</span>)
+
+    <span class="k">if</span> <span class="f">any</span>(w <span class="k">in</span> question <span class="k">for</span> w <span class="k">in</span> (<span class="s">"接口"</span>, <span class="s">"报错"</span>, <span class="s">"部署"</span>)):
+        category = <span class="s">"技术问题"</span>
+    <span class="k">elif</span> <span class="f">any</span>(w <span class="k">in</span> question <span class="k">for</span> w <span class="k">in</span> (<span class="s">"价格"</span>, <span class="s">"合同"</span>, <span class="s">"退款"</span>)):
+        category = <span class="s">"业务问题"</span>
+    <span class="k">else</span>:
+        category = <span class="s">"其他问题"</span>
+
+    <span class="c"># 只返回「要更新的字段」，不是完整状态</span>
+    <span class="k">return</span> {
+        <span class="s">"category"</span>: category,
+        <span class="s">"trace"</span>: [{<span class="s">"step"</span>: <span class="s">"① 分类"</span>, <span class="s">"detail"</span>: <span class="s">f"判定为「{category}」"</span>}],
+    }</code></pre>
+</div>
+
+<p><strong>第三件事：组装成图。</strong>四个固定动作，记住就行：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">from</span> langgraph.graph <span class="k">import</span> StateGraph, START, END
+
+<span class="k">def</span> <span class="f">build_basic_graph</span>():
+    builder = <span class="f">StateGraph</span>(BasicState)          <span class="c"># 1. 声明用什么状态</span>
+
+    builder.<span class="f">add_node</span>(<span class="s">"classify"</span>, classify)     <span class="c"># 2. 注册节点</span>
+    builder.<span class="f">add_node</span>(<span class="s">"answer"</span>, answer)
+    builder.<span class="f">add_node</span>(<span class="s">"polish"</span>, polish)
+
+    builder.<span class="f">add_edge</span>(START, <span class="s">"classify"</span>)        <span class="c"># 3. 连边</span>
+    builder.<span class="f">add_edge</span>(<span class="s">"classify"</span>, <span class="s">"answer"</span>)
+    builder.<span class="f">add_edge</span>(<span class="s">"answer"</span>, <span class="s">"polish"</span>)
+    builder.<span class="f">add_edge</span>(<span class="s">"polish"</span>, END)
+
+    <span class="k">return</span> builder.<span class="f">compile</span>()                 <span class="c"># 4. 编译成可执行对象</span></code></pre>
+</div>
+
+<h3>④ 逐段拆解</h3>
+
+<p><strong>为什么要 compile()？</strong></p>
+<p>因为图在编译时才会做校验：节点名有没有重复、边连的节点是否存在、
+状态字段的 reducer 有没有冲突。把错误暴露在编译期，而不是运行到一半才炸。
+编译之后还会生成一个可以画出来的图结构（就是上面那张"图的形状"）。</p>
+
+<p><strong>为什么分类节点故意不调大模型？</strong></p>
+<p>为了让这一阶段的注意力完全集中在"图"上。分类用关键词规则就够 ——
+跑得快、结果稳定、没有任何不确定性。等你把图的机制吃透了，
+再考虑把这种小判断换成模型，那时你已经知道图是怎么跑的了。</p>
+
+<p class="small">这是我自己很推崇的学习方式：<strong>一次只引入一个新的不确定性。</strong>
+同时引入"图"和"大模型"两个新东西，出问题时你根本不知道是谁的锅。</p>
+
+<p><strong>被覆盖 vs 被累加，怎么看出来的？</strong></p>
+<p>看这个执行顺序：</p>
+<ul>
+  <li><code>answer</code> 字段先被"回答"节点写成原始回答</li>
+  <li>然后被"润色"节点<strong>整个覆盖</strong>成"【分类】+ 原始回答"</li>
+  <li><code>trace</code> 字段则是三个节点各追加一条，最后有 3 条</li>
+</ul>
+<p>同一个 dict 返回，两种完全不同的合并行为 —— 差别就在状态定义里那个 <code>Annotated[..., operator.add]</code>。</p>
+
+<h3>⑤ 跑起来看什么</h3>
+<div class="codewrap"><span class="tag">输出</span>
+<pre><code>── 执行轨迹 ──
+  ① 分类：判定为「技术问题」
+  ② 回答：已调用模型生成原始回答
+  ③ 润色：已拼接分类前缀（answer 被覆盖）
+
+── 最终状态里的字段 ──
+  question = '接口调用报错 RATE_LIMITED 是什么意思？'
+  category = '技术问题'
+  answer   = '【技术问题】...'</code></pre>
+</div>
+<p>重点不是答案对不对（这一阶段的答案很粗糙，很正常），而是：</p>
+<ol>
+  <li>轨迹有 3 条 → 三个节点都跑到了，顺序对</li>
+  <li>最后的 answer 带着分类前缀 → 后面读到了前面写的值，状态流动是通的</li>
+</ol>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：LangGraph 的基本构建流程是什么？</strong></p>
+  <p>答：四步 —— 定义状态（TypedDict）、注册节点（纯函数）、连接边（普通边 + 条件边）、编译。
+  编译这一步会做静态校验，把结构性错误提前暴露出来。</p>
+  <p><strong>追问：节点函数的返回值有什么讲究？</strong></p>
+  <p>答：返回的是<strong>增量字典</strong>，不是完整状态。LangGraph 拿它去合并进全局状态，
+  合并规则由字段的 reducer 决定。默认是覆盖，用 <code>Annotated[x, add]</code> 可以改成累加。</p>
+</div>
+
+
+<h2 id="s2">S2 · 会自己调工具的 Agent</h2>
+<p><span class="stage">阶段 2</span> <span class="small">对应文件：<code>src/docpilot/graphs/s2_tools.py</code>　跑它：<code>python src/docpilot/graphs/s2_tools.py</code></span></p>
+
+<h3>① 一句话目标</h3>
+<p>把主动权交给模型：<strong>让它自己决定要不要调工具、调哪个、传什么参数。</strong></p>
+
+<h3>② 图示</h3>
+<div class="flow">
+<span class="lbl">我们只给它两个工具：</span><br>
+<span class="node">🔍 search_knowledge_base</span> <span class="lbl">查内部知识库</span><br>
+<span class="node">🧮 calculator</span> <span class="lbl">算数</span><br><br>
+<span class="lbl">至于用哪个、用几次 —— 全靠它自己判断。</span>
+</div>
+<p>这种"一边推理一边行动"的模式有个专门的名字，叫 <abbr class="t" title="ReAct = Reasoning + Acting：让模型交替进行推理和行动，行动的结果再喂回去继续推理">ReAct</abbr>。</p>
+
+<h3>③ 代码</h3>
+
+<p><strong>先写工具。</strong>注意 docstring 不是写给人看的，是写给<strong>模型</strong>看的：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">from</span> langchain_core.tools <span class="k">import</span> tool
+
+<span class="nd">@tool</span>
+<span class="k">def</span> <span class="f">search_knowledge_base</span>(query: <span class="k">str</span>, top_k: <span class="k">int</span> = <span class="n">4</span>) -> <span class="k">str</span>:
+    <span class="s">"""在公司内部知识库中检索资料。</span>
+
+<span class="s">    当用户的问题涉及产品功能、接口用法、操作流程、技术规范、参数配置、</span>
+<span class="s">    故障排查等需要依据内部文档才能准确回答的内容时，使用这个工具。</span>
+<span class="s">    不要用它来回答闲聊或通用常识问题。</span>
+
+<span class="s">    参数：</span>
+<span class="s">        query: 检索用的查询语句。建议用陈述式的关键词组合，</span>
+<span class="s">               比如"登录失败 排查 步骤"，而不是"登录失败怎么办？"。</span>
+<span class="s">        top_k: 返回多少条资料，默认 4 条。</span>
+<span class="s">    """</span>
+    retriever = <span class="f">get_retriever</span>()
+    chunks = retriever.<span class="f">retrieve</span>(query, top_k=top_k)
+    <span class="k">return</span> <span class="s">"\n\n"</span>.<span class="f">join</span>(<span class="s">f"[{i}] {c['content']}"</span> <span class="k">for</span> i, c <span class="k">in</span> <span class="f">enumerate</span>(chunks, <span class="n">1</span>))</code></pre>
+</div>
+
+<p><strong>然后一行搭出 Agent：</strong></p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">from</span> langchain.agents <span class="k">import</span> create_agent
+
+agent = <span class="f">create_agent</span>(llm, ALL_TOOLS)
+
+result = agent.<span class="f">invoke</span>({<span class="s">"messages"</span>: [{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: question}]})
+<span class="f">print</span>(result[<span class="s">"messages"</span>][-<span class="n">1</span>].content)</code></pre>
+</div>
+
+<h3>④ 逐段拆解</h3>
+
+<p><strong>docstring 到底有多重要？</strong></p>
+<p>非常大。模型看到的"工具列表"就是函数签名 + docstring 自动生成的 JSON Schema。
+你写"这是一个查询函数"，模型就完全不知道什么该用它；
+你写清"涉及内部文档的问题用它，闲聊别用"，模型才可能选对。</p>
+<p class="small">经验值：docstring 控制在 1024 字符以内。太长的说明应该挪到系统提示词里，别塞进工具描述。</p>
+
+<p><strong>工具的参数写 <code>query: str</code> 有什么讲究？</strong></p>
+<p>类型注解会被转成 JSON Schema 给模型看。如果不写，模型就得瞎猜参数名和类型，
+调用成功率会明显下降。</p>
+
+<div class="warn box">
+  <span class="bt">⚠️ 一个真实的版本坑（面试加分项）</span>
+  <p>你如果搜"LangGraph 怎么搭 Agent"，大概率会看到这个写法：</p>
+  <p><code>from langgraph.prebuilt import create_react_agent</code></p>
+  <p><strong>它在 LangGraph 1.0 起已经被标记为废弃（deprecated）了</strong>，
+  官方要求改用 <code>langchain.agents.create_agent</code>，并计划在 2.0 移除。
+  照抄旧教程跑起来会弹一排 <code>LangGraphDeprecatedSinceV10</code> 警告。</p>
+  <p>项目里的做法是写一个"版本兼容垫片"：优先试新 API，没有就退回旧 API。
+  这多写了十几行，但别人换环境跑不起来的时候你还能跑。</p>
+</div>
+
+<h3>⑤ 跑起来看什么</h3>
+<p>看它<strong>决定调用哪个工具</strong>，以及工具结果<strong>有没有被正确带回对话</strong>：</p>
+<div class="codewrap"><span class="tag">输出</span>
+<pre><code>── 完整消息链路 ──
+  [HumanMessage] 接口返回 429 是什么意思？该怎么处理？
+  [AIMessage] 想调用工具：['search_knowledge_base']      ← 它自己决定的
+  [ToolMessage] 工具返回：[1] 来源：03-API接口规范.md...
+  [AIMessage] 根据知识库中的资料，整理如下：...            ← 基于工具结果作答</code></pre>
+</div>
+<p>消息链路里那四种消息类型，是理解 Agent 运行过程的关键：</p>
+<table>
+<thead><tr><th style="width:150px">类型</th><th>代表什么</th></tr></thead>
+<tbody>
+<tr><td><code>HumanMessage</code></td><td>用户说的话</td></tr>
+<tr><td><code>AIMessage</code></td><td>模型说的话（可能带 tool_calls，表示"我想调工具"）</td></tr>
+<tr><td><code>ToolMessage</code></td><td>工具执行完的结果，回灌给模型</td></tr>
+<tr><td><code>SystemMessage</code></td><td>系统提示词，设定模型的身份和规则</td></tr>
+</tbody>
+</table>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：LangGraph 的 API 分几层？你平时用哪层？</strong></p>
+  <p>答：三层，自顶向下是 ——</p>
+  <ol>
+    <li><strong>预构建图</strong>（<code>create_agent</code>）：一行搞定标准 Agent 模式，经过大量真实项目打磨，出错概率最低</li>
+    <li><strong>Agent Node 中层 API</strong>：保留对循环的控制，但省去手写细节</li>
+    <li><strong>构建图底层 API</strong>（<code>StateGraph</code>）：完全手动，多分支、循环、人工介入都能显式表达</li>
+  </ol>
+  <p>然后给出你的判断标准：<strong>"能用高层就用高层，只有默认行为确实不满足业务需求时才下沉到底层。"</strong>
+  这句话很关键 —— 它说明你不是为了炫技而手写图。</p>
+</div>
+
+
+<h2 id="s3">S3 · 把 S2 拆开，手写一遍</h2>
+<p><span class="stage">阶段 3</span> <span class="small">对应文件：<code>src/docpilot/graphs/s3_react.py</code>　跑它：<code>python src/docpilot/graphs/s3_react.py</code></span></p>
+
+<h3>① 一句话目标</h3>
+<p>搞清楚 <code>create_agent</code> 内部到底画了什么图。<strong>会用它，也要能拆它。</strong></p>
+
+<h3>② 图示</h3>
+<div class="flow">
+<span class="node">START</span> <span class="arrow">→</span> <span class="node">agent（模型）</span><br>
+<span style="padding-left:100px"></span><span class="arrow">↓</span> <span class="lbl">条件边：模型输出里有 tool_calls 吗？</span><br>
+<span style="padding-left:60px"></span><span class="arrow">├─</span> <span class="lbl">有</span> <span class="arrow">→</span> <span class="node a">tools（执行工具）</span> <span class="arrow">↺ 回到 agent</span><br>
+<span style="padding-left:60px"></span><span class="arrow">└─</span> <span class="lbl">没有</span> <span class="arrow">→</span> <span class="node g">END</span> <span class="lbl">（说明模型给出了最终答案）</span>
+</div>
+
+<h3>③ 代码</h3>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">from</span> langgraph.graph <span class="k">import</span> StateGraph, START, END
+<span class="k">from</span> langgraph.graph.message <span class="k">import</span> add_messages
+<span class="k">from</span> langgraph.prebuilt <span class="k">import</span> ToolNode
+
+<span class="k">class</span> <span class="f">ReactState</span>(TypedDict, total=<span class="k">False</span>):
+    messages: Annotated[<span class="k">list</span>[AnyMessage], add_messages]   <span class="c"># ← 必须带 reducer</span>
+
+<span class="k">def</span> <span class="f">call_model</span>(state):
+    <span class="s">"""节点1：模型负责「想」—— 决定回答还是调工具"""</span>
+    model = llm.<span class="f">bind_tools</span>(ALL_TOOLS)          <span class="c"># 告诉模型有哪些工具可用</span>
+    response = model.<span class="f">invoke</span>([SystemMessage(content=REACT_SYSTEM), *state[<span class="s">"messages"</span>]])
+    <span class="k">return</span> {<span class="s">"messages"</span>: [response]}
+
+<span class="k">def</span> <span class="f">should_continue</span>(state) -> <span class="k">str</span>:
+    <span class="s">"""条件边：看模型最后说了什么，决定下一步"""</span>
+    last = state[<span class="s">"messages"</span>][-<span class="n">1</span>]
+    <span class="k">if</span> <span class="f">getattr</span>(last, <span class="s">"tool_calls"</span>, <span class="k">None</span>):
+        <span class="k">return</span> <span class="s">"tools"</span>       <span class="c"># 想去调工具</span>
+    <span class="k">return</span> END                <span class="c"># 没有工具调用 → 它已经给出答案了，结束</span>
+
+builder = <span class="f">StateGraph</span>(ReactState)
+builder.<span class="f">add_node</span>(<span class="s">"agent"</span>, call_model)
+builder.<span class="f">add_node</span>(<span class="s">"tools"</span>, <span class="f">ToolNode</span>(ALL_TOOLS))   <span class="c"># 节点2：工具负责「做」</span>
+
+builder.<span class="f">add_edge</span>(START, <span class="s">"agent"</span>)
+builder.<span class="f">add_conditional_edges</span>(
+    <span class="s">"agent"</span>, should_continue,
+    {<span class="s">"tools"</span>: <span class="s">"tools"</span>, END: END},       <span class="c"># 返回值 → 目标节点</span>
+)
+builder.<span class="f">add_edge</span>(<span class="s">"tools"</span>, <span class="s">"agent"</span>)          <span class="c"># ← 这条回边，就是"循环"</span>
+
+graph = builder.<span class="f">compile</span>()</code></pre>
+</div>
+
+<h3>④ 逐段拆解</h3>
+
+<p><strong>整体就是：两个节点 + 一条条件边 + 一条回边。</strong>
+<code>create_agent</code> 帮你省掉的，其实只有这么点东西。</p>
+
+<p><strong>为什么 <code>messages</code> 必须带 reducer？</strong></p>
+<p>因为循环里每一步都在追加消息。如果不加 <code>add_messages</code>，
+第二步的工具结果会把第一步的模型输出覆盖掉 —— 循环当场断掉，
+模型看到的消息列表里永远只有最新一条。</p>
+
+<p><strong>条件边的返回值可以直接是 <code>END</code>。</strong></p>
+<p>映射表里写 <code>{END: END}</code> 意思就是"返回 END 就直接结束流程"，
+不用再写一个专门的终止节点。</p>
+
+<p><strong>ToolNode 做什么？</strong></p>
+<p>它读取最后一条消息里的 <code>tool_calls</code>，逐个执行对应的函数，
+把结果包装成 <code>ToolMessage</code> 追加到消息列表。
+模型输出的只是"我想调用 xxx"，<strong>真正执行的永远是 ToolNode</strong>。</p>
+
+<p><strong>回边会不会死循环？</strong></p>
+<p>会，所以需要 <code>recursion_limit</code> 兜底：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code>result = graph.<span class="f">invoke</span>(
+    {<span class="s">"messages"</span>: [HumanMessage(content=q)]},
+    config={<span class="s">"recursion_limit"</span>: <span class="n">12</span>},     <span class="c"># 最多走 12 步，超了抛异常</span>
+)</code></pre>
+</div>
+<p class="small">LangGraph 里的"一步" = 访问一个节点。一次工具往返算两步（模型节点 + 工具节点），
+所以 12 步大约等于 5 次工具调用。这个换算关系面试常被追问。</p>
+
+<h3>⑤ 跑起来看什么</h3>
+<div class="codewrap"><span class="tag">输出</span>
+<pre><code>── 消息流转过程 ──
+  1. [HumanMessage] → 连续输错密码 5 次会怎么样？...
+  2. [AIMessage]    → 决定调用 ['search_knowledge_base']
+  3. [ToolMessage]  → 返回 1532 字结果
+  4. [AIMessage]    → 根据知识库中的资料，整理如下：...</code></pre>
+</div>
+<p>两条 <code>AIMessage</code> 之间夹着一条 <code>ToolMessage</code> ——
+这正好对应"模型想 → 工具做 → 模型再想"的一个完整循环。</p>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：ReAct 循环在生产环境可能出什么问题？</strong></p>
+  <p>答四条，每条都带解法，层次感立刻出来：</p>
+  <table>
+  <thead><tr><th style="width:150px">问题</th><th>解法</th></tr></thead>
+  <tbody>
+  <tr><td>死循环（反复调同一个工具）</td><td>设 <code>recursion_limit</code>；在条件边里加"同一个工具调用超过 N 次就强制结束"</td></tr>
+  <tr><td>工具抛异常</td><td>LangGraph 的 ToolNode 不会默默吞异常，会抛出来。需要配重试策略，或用 <code>handle_tool_errors=True</code> 把错误变成一条 ToolMessage 交给模型自己处理</td></tr>
+  <tr><td>上下文爆炸（消息越滚越长）</td><td>做上下文裁剪，或者把旧消息摘要压缩；也可以只保留最近 N 轮</td></tr>
+  <tr><td>参数幻觉（编造不存在的参数）</td><td>用严格 schema + 参数校验，错误时返回明确的提示让模型重试</td></tr>
+  </tbody>
+  </table>
+  <p>最后补一句判断：<strong>"绝大多数生产系统不会用纯 ReAct 扛核心流程，
+  而是把确定性高的步骤固化成图上的节点，只在真正需要判断的地方留条件边。"</strong>
+  这句话直接引出后面的 S4/S5，面试官会觉得你在做架构思考，而不是在堆功能。</p>
+</div>
+
+<h2 id="s4">S4 · 接入 RAG（先建立基准线）</h2>
+<p><span class="stage">阶段 4</span> <span class="small">对应文件：<code>src/docpilot/graphs/s4_rag.py</code>、<code>src/docpilot/retrievers/</code>　跑它：<code>python src/docpilot/graphs/s4_rag.py</code></span></p>
+
+<h3>① 一句话目标</h3>
+<p>把知识库接进来，让回答<strong>有据可依</strong>。这一版故意做得很简单 —— 它是一条基准线。</p>
+
+<h3>② 图示</h3>
+<div class="flow">
+<span class="node">START</span> <span class="arrow">→</span> <span class="node">检索 retrieve</span> <span class="arrow">→</span> <span class="node">生成 generate</span> <span class="arrow">→</span> <span class="node g">END</span>
+</div>
+<p class="small">一条直线，没有判断，没有循环。这就是最经典的 RAG 结构。</p>
+
+<h3>③ 代码</h3>
+
+<p><strong>第一步：定义检索器的统一接口。</strong>这是全项目最重要的设计之一：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">class</span> <span class="f">BaseRetriever</span>(ABC):
+    <span class="s">"""所有检索器都要实现这个接口"""</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="f">retrieve</span>(self, query: <span class="k">str</span>, top_k: <span class="k">int</span> = <span class="n">4</span>) -> <span class="k">list</span>[Chunk]:
+        <span class="s">"""根据查询召回最相关的若干条文本块"""</span>
+        <span class="k">raise</span> <span class="f">NotImplementedError</span></code></pre>
+</div>
+<p>上层只认这一个方法。底层是 BM25 还是向量检索还是 Elasticsearch，上层完全不知道。</p>
+
+<p><strong>第二步：中文 BM25 的分词技巧。</strong>BM25 原本是为英文设计的（按空格切词），中文没空格怎么办？</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">tokenize</span>(text: <span class="k">str</span>) -> <span class="k">list</span>[<span class="k">str</span>]:
+    <span class="s">"""中英文混合分词"""</span>
+    lowered = text.<span class="f">lower</span>()
+    tokens = re.<span class="f">findall</span>(<span class="s">r"[a-z0-9_]+"</span>, lowered)      <span class="c"># 英文/数字按连续字母切</span>
+
+    <span class="k">for</span> run <span class="k">in</span> re.<span class="f">findall</span>(<span class="s">r"[\u4e00-\u9fff]+"</span>, lowered):  <span class="c"># 中文：切成相邻两字</span>
+        <span class="k">if</span> <span class="f">len</span>(run) == <span class="n">1</span>:
+            tokens.<span class="f">append</span>(run)
+        <span class="k">else</span>:
+            tokens.<span class="f">extend</span>(run[i:i+<span class="n">2</span>] <span class="k">for</span> i <span class="k">in</span> <span class="f">range</span>(<span class="f">len</span>(run) - <span class="n">1</span>))
+
+    <span class="k">return</span> tokens
+
+<span class="c"># "登录失败" → ["登录", "录失", "失败"]</span>
+<span class="c">#                 ↑ 这个片段没意义，但它几乎没有区分度，对排序影响很小</span></code></pre>
+</div>
+<p class="small">这个技巧叫 <strong>bigram（双字片段）</strong>。虽然不是真正的分词，
+但对关键词检索来说工程上完全够用，而且零依赖 —— 不用装 jieba，不用下载词表。</p>
+
+<p><strong>第三步：检索节点。</strong></p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">retrieve</span>(state: DocPilotState) -> <span class="k">dict</span>:
+    settings = <span class="f">get_settings</span>()
+    retriever = <span class="f">get_retriever</span>()
+
+    query = state.get(<span class="s">"question"</span>) <span class="k">or</span> state.get(<span class="s">"original_question"</span>, <span class="s">""</span>)
+    chunks = retriever.<span class="f">retrieve</span>(query, top_k=settings.top_k)
+
+    <span class="k">return</span> {
+        <span class="s">"documents"</span>: [<span class="f">dict</span>(c) <span class="k">for</span> c <span class="k">in</span> chunks],   <span class="c"># 转成普通 dict，方便序列化进检查点</span>
+        <span class="s">"trace"</span>: <span class="f">with_trace</span>(state, <span class="f">trace_event</span>(<span class="s">"retrieve"</span>, detail=<span class="s">f"召回 {len(chunks)} 条"</span>)),
+    }</code></pre>
+</div>
+
+<h3>④ 逐段拆解</h3>
+
+<p><strong>为什么要"切块"（chunking）？</strong></p>
+<ol>
+  <li>一份文档几万字，整段塞给模型会超长，又贵又慢</li>
+  <li>检索粒度越细，越容易精准命中"那一小段真正相关的内容"</li>
+  <li>太细又会丢上下文，所以要平衡</li>
+</ol>
+<p>项目里的策略是：<strong>先按空行分段，再把段落拼到目标长度（400 字），并带上 60 字的尾部重叠。</strong>
+重叠是为了避免关键信息正好落在切口上被劈成两半。</p>
+
+<p><strong>为什么检索做成"节点"而不是"工具"？</strong></p>
+<p>两者都行，取舍不同：</p>
+<table>
+<thead><tr><th style="width:110px">做法</th><th>优点</th><th>缺点</th></tr></thead>
+<tbody>
+<tr><td>做成工具</td><td>模型自己决定何时检索、用什么 query，灵活</td><td>模型可能忘记调用，或把 query 写得乱七八糟；流程不可控</td></tr>
+<tr><td>做成节点</td><td>流程确定，每步都在掌控中；检索结果直接落进状态，方便评分、引用、调试</td><td>灵活性低，不能按需多次检索</td></tr>
+</tbody>
+</table>
+<p><strong>判断标准：流程确定的部分用节点，需要模型自主决策的部分用工具。</strong></p>
+<p class="small">这个项目里，S2/S3 演示了工具做法，S4 之后切回节点做法。
+面试被问到"你为什么不全都用工具"时，这就是答案。</p>
+
+<p><strong>BM25 和向量检索有什么区别？</strong></p>
+<table>
+<thead><tr><th style="width:110px"></th><th>BM25（关键词）</th><th>向量检索（语义）</th></tr></thead>
+<tbody>
+<tr><td>比什么</td><td>字面有没有相同的词</td><td>意思像不像</td></tr>
+<tr><td>擅长</td><td>专有名词、错误码、接口名（<code>ERR_502</code>）</td><td>"上不去网" ↔ "无法完成身份认证"</td></tr>
+<tr><td>缺点</td><td>换个说法就找不到</td><td>对精确串反而弱；要跑 embedding 模型</td></tr>
+<tr><td>成本</td><td>零依赖、毫秒级</td><td>要下几百 MB 模型，需要 GPU 更好</td></tr>
+</tbody>
+</table>
+<p>生产上的主流做法是<strong>混合检索</strong>：两路都召回，再用 RRF（倒数排名融合）合并排序。</p>
+
+<h3>⑤ 跑起来看什么</h3>
+<div class="codewrap"><span class="tag">输出</span>
+<pre><code>提问：连续输错密码 5 次会怎么样？
+命中证据：4 条
+回答：
+根据知识库中的资料，整理如下：
+[1] 来源：02-登录与账号.md ...
+以上内容来自上述资料 [1]。</code></pre>
+</div>
+<p>关键看两点：<strong>命中的文档对不对</strong>，以及 <strong>答案有没有标注引用来源</strong>。</p>
+
+<div class="warn box">
+  <span class="bt">⚠️ 朴素 RAG 的两个硬伤（这是 S5 要解决的）</span>
+  <p><strong>硬伤一：检索不到就不管了。</strong>用户问的东西知识库里没有，检索返回空列表，
+  模型还是硬答了一段 —— 这就是幻觉的来源。</p>
+  <p><strong>硬伤二：检索到垃圾也照用。</strong>召回了几段毫不相关的文字，
+  模型一本正经地总结了一通。用户看起来"有依据"，其实全是错的。</p>
+  <p>根因在于它的链路是<strong>单向</strong>的：查询 → 检索 → 生成，中间没有任何反馈环节。
+  <strong>系统不知道自己找错了。</strong></p>
+</div>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：朴素 RAG 有什么局限？你会从哪几个方向改进？</strong></p>
+  <p>答：链路单向、没有反馈是根本问题。改进方向分两头：</p>
+  <ul>
+    <li><strong>往前 —— 优化查询本身</strong>：查询重写、同义扩展、多查询（Multi-Query）、HyDE（先编一个假设答案，用答案去检索）</li>
+    <li><strong>往后 —— 对召回结果做评估</strong>：重排序（Rerank）、相关性评分、自纠正（本项目的做法）</li>
+  </ul>
+  <p><strong>追问：chunk_size 怎么定？</strong></p>
+  <p>答：没有标准答案，要在"召回精度"和"上下文完整性"之间权衡。
+  我的做法是优先按语义边界（段落、标题）切，其次才按长度切，
+  并加 10%~15% 的重叠避免信息正好落在切口上。
+  实际参数要靠评测集来调，不能拍脑袋。</p>
+</div>
+
+
+<h2 id="s5">S5 · 自纠正循环 ★</h2>
+<p><span class="stage">阶段 5</span> <span class="small">对应文件：<code>src/docpilot/graphs/s5_crag.py</code>、<code>nodes/grade.py</code>、<code>nodes/rewrite.py</code>　跑它：<code>python src/docpilot/graphs/s5_crag.py</code></span></p>
+
+<div class="note box">
+  <span class="bt">🔥 这是整个项目最值钱的部分</span>
+  <p>如果面试时间只够讲一个模块，讲这个。它把"单向链"变成了"带反馈的环"，
+  是很多 RAG 项目从 Demo 走向可用的分水岭。</p>
+</div>
+
+<h3>① 一句话目标</h3>
+<p>让系统能<strong>发现"我找的资料不对"</strong>，然后换个说法重新找一次，
+而不是硬编一段答案糊弄用户。</p>
+
+<h3>② 图示</h3>
+<div class="flow">
+<span class="node">检索</span> <span class="arrow">→</span> <span class="node a">③ 评分</span><br>
+<span style="padding-left:20px"></span><span class="arrow">├─</span> <span class="lbl">分数 ≥ 及格线</span> <span class="arrow">→</span> <span class="node g">生成答案</span><br>
+<span style="padding-left:20px"></span><span class="arrow">└─</span> <span class="lbl">分数 &lt; 及格线</span> <span class="arrow">→</span> <span class="node a">④ 重写查询</span> <span class="arrow">↺ 回到「检索」</span>
+</div>
+<p>就多了两个节点，但系统的行为档次完全不一样了：</p>
+<p style="margin-left:6px">
+从「检索到什么就答什么」　→　「<strong>先判断资料够不够，不够就再找</strong>」</p>
+
+<h3>③ 代码</h3>
+
+<p><strong>节点 A：评分。</strong>让它当裁判，判断证据能不能回答问题。</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">grade_documents</span>(state: DocPilotState) -> <span class="k">dict</span>:
+    <span class="s">"""给检索到的证据打分（0~10）"""</span>
+    documents = state.get(<span class="s">"documents"</span>) <span class="k">or</span> []
+    question = state.get(<span class="s">"question"</span>) <span class="k">or</span> state.get(<span class="s">"original_question"</span>, <span class="s">""</span>)
+
+    <span class="c"># 一条都没召回到，不用浪费一次模型调用，直接给 0 分</span>
+    <span class="k">if</span> <span class="k">not</span> documents:
+        <span class="k">return</span> {<span class="s">"retrieval_score"</span>: <span class="n">0.0</span>, <span class="s">"grade_reason"</span>: <span class="s">"没有检索到任何证据"</span>}
+
+    response = llm.<span class="f">invoke</span>([
+        <span class="f">SystemMessage</span>(content=GRADER_SYSTEM),   <span class="c"># 提示词要求只输出 JSON 评分</span>
+        <span class="f">HumanMessage</span>(content=GRADER_HUMAN.<span class="f">format</span>(
+            question=question, documents=<span class="f">format_documents</span>(documents))),
+    ])
+
+    payload = <span class="f">parse_json_loose</span>(response.content)   <span class="c"># 宽容解析，模型爱加代码块也不怕</span>
+    score = <span class="f">safe_float</span>(payload.get(<span class="s">"score"</span>), <span class="n">0.0</span>)
+
+    <span class="k">return</span> {<span class="s">"retrieval_score"</span>: score, <span class="s">"grade_reason"</span>: payload.get(<span class="s">"reason"</span>, <span class="s">""</span>)}</code></pre>
+</div>
+
+<p><strong>节点 B：重写查询。</strong>分数不够就换个问法。</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">rewrite_query</span>(state: DocPilotState) -> <span class="k">dict</span>:
+    <span class="s">"""把口语化的问题改写成更适合检索的表述"""</span>
+    question = state.get(<span class="s">"original_question"</span>) <span class="k">or</span> state.get(<span class="s">"question"</span>, <span class="s">""</span>)
+    reason = state.get(<span class="s">"grade_reason"</span>, <span class="s">""</span>)   <span class="c"># 把上次为什么没找好也告诉它</span>
+
+    response = llm.<span class="f">invoke</span>([
+        <span class="f">SystemMessage</span>(content=REWRITER_SYSTEM),
+        <span class="f">HumanMessage</span>(content=REWRITER_HUMAN.<span class="f">format</span>(question=question, reason=reason)),
+    ])
+
+    new_query = <span class="f">str</span>(response.content).<span class="f">strip</span>().<span class="f">strip</span>(<span class="s">"\"'“”‘’"</span>)   <span class="c"># 模型爱加引号，去掉</span>
+    count = <span class="f">int</span>(state.get(<span class="s">"rewrite_count"</span>, <span class="n">0</span>)) + <span class="n">1</span>          <span class="c"># 计数器 +1（防死循环）</span>
+
+    <span class="k">return</span> {<span class="s">"question"</span>: new_query <span class="k">or</span> question, <span class="s">"rewrite_count"</span>: count}</code></pre>
+</div>
+
+<p><strong>节点 C：把环连起来。</strong>关键是条件边和那条回边。</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code>builder.<span class="f">add_edge</span>(<span class="s">"retrieve"</span>, <span class="s">"grade_documents"</span>)
+
+<span class="c"># 核心分支：证据够不够用？</span>
+builder.<span class="f">add_conditional_edges</span>(
+    <span class="s">"grade_documents"</span>,
+    after_grade,                                  <span class="c"># 判断函数</span>
+    {<span class="s">"generate"</span>: <span class="s">"generate"</span>, <span class="s">"rewrite"</span>: <span class="s">"rewrite_query"</span>},
+)
+
+builder.<span class="f">add_edge</span>(<span class="s">"rewrite_query"</span>, <span class="s">"retrieve"</span>)   <span class="c"># ← 这条回边形成循环</span></code></pre>
+</div>
+
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">after_grade</span>(state) -> <span class="k">str</span>:
+    <span class="s">"""评分节点之后：够用就生成，不够用就重写再来一轮"""</span>
+    settings = <span class="f">get_settings</span>()
+    score = <span class="f">float</span>(state.get(<span class="s">"retrieval_score"</span>, <span class="n">0.0</span>) <span class="k">or</span> <span class="n">0.0</span>)
+    used = <span class="f">int</span>(state.get(<span class="s">"rewrite_count"</span>, <span class="n">0</span>) <span class="k">or</span> <span class="n">0</span>)
+
+    <span class="k">if</span> score >= settings.score_threshold:
+        <span class="k">return</span> <span class="s">"generate"</span>
+
+    <span class="k">if</span> used >= settings.max_rewrites:
+        <span class="k">return</span> <span class="s">"generate"</span>   <span class="c"># ← 保险丝：次数用尽必须放行，否则永远转圈</span>
+
+    <span class="k">return</span> <span class="s">"rewrite"</span></code></pre>
+</div>
+
+<h3>④ 逐段拆解</h3>
+
+<p><strong>为什么不直接让生成节点"注意别编"，而要单独加个评分节点？</strong></p>
+<p>因为这是两件不同的事。生成节点的任务是"把资料组织成通顺的答案"，
+它天然倾向于"用上手上的材料"。让同一个调用同时负责"生成"和"自我质疑"，
+效果会打折扣。</p>
+<p><strong>拆成独立的调用、独立的提示词、独立的职责，是更可靠的做法。</strong>
+这也符合软件工程里的"关注点分离"。</p>
+
+<p><strong>阈值 6.5 是怎么定的？</strong></p>
+<p>拍出来的，然后用一批真实问题跑了一遍看效果 —— 太低了起不到过滤作用，
+太高了会频繁触发重写、白白增加延迟和成本。</p>
+<p class="small">这里有个很实在的取舍值得在面试里讲：<strong>每一次重写都意味着多一次检索 + 多一次评分，延迟大概翻倍。</strong>
+所以"重写次数上限"既是防死循环的保险，也是成本控制的闸门。</p>
+
+<div class="danger box">
+  <span class="bt">❌ 设计带环的图，第一件事必须回答：怎么退出？</span>
+  <p>这个项目用了<strong>三道保险</strong>，缺一不可：</p>
+  <ol>
+    <li><strong>及格线</strong> —— 分数够了立刻离开循环</li>
+    <li><strong>计数器</strong> —— <code>rewrite_count</code> 到达 <code>max_rewrites</code> 强制放行</li>
+    <li><strong>recursion_limit</strong> —— LangGraph 层面的兜底，超过步数直接抛 <code>GraphRecursionError</code></li>
+  </ol>
+  <p>有人可能会想"第三道就够了"。不够 —— 它是<strong>兜底</strong>，触发时是异常，
+  不是正常控制流。用它来管流程，用户看到的会是报错，而不是"资料不足"的友好提示。</p>
+</div>
+
+<p><strong>一个很容易搞错的细节：评分用哪个问题？</strong></p>
+<p>项目里有 <code>original_question</code>（用户原话）和 <code>question</code>（可能被重写过的）两个字段。它们的分工必须分清楚：</p>
+<table>
+<thead><tr><th style="width:150px">节点</th><th style="width:180px">用哪个</th><th>为什么</th></tr></thead>
+<tbody>
+<tr><td>评分节点</td><td><code>question</code>（当前 query）</td><td>要判断"这一轮找的资料够不够回答这一轮的检索意图"，才能反映重写有没有起作用</td></tr>
+<tr><td>生成节点</td><td><code>original_question</code></td><td>用户想知道的是他最初问的那件事，不是我们改写后的检索词</td></tr>
+</tbody>
+</table>
+<p class="small">这两行如果搞反，会出现"答案答非所问"或"重写永远不生效"的诡异现象。踩过就知道。</p>
+
+<h3>⑤ 跑起来看什么</h3>
+<p>下面是真实运行输出。三个问题刻意做了区分：</p>
+
+<div class="codewrap"><span class="tag">问题 1 · 直接命中</span>
+<pre><code>提问：连续输错密码 5 次会怎么样？
+路由结果：retrieve      证据条数：4      证据评分：10.0
+重写次数：0
+
+── 执行轨迹 ──
+  ✓ 01. ① 路由判断   判定为「retrieve」
+  ✓ 02. ② 检索资料   用「连续输错密码 5 次会怎么样？」召回 4 条证据
+  ✓ 03. ③ 证据评分   10.0 分 ≥ 及格线 6.5，证据可用
+  ✓ 04. ⑤ 生成答案   基于 4 条证据生成答案</code></pre>
+</div>
+
+<div class="codewrap"><span class="tag">问题 2 · 触发自纠正 ★</span>
+<pre><code>提问：账号被锁了多久才能再登
+路由结果：retrieve      证据条数：4      证据评分：6.9
+重写次数：1
+
+── 执行轨迹 ──
+  ✓ 01. ① 路由判断   判定为「retrieve」
+  ✓ 02. ② 检索资料   用「账号被锁了多久才能再登」召回 4 条证据
+  ! 03. ③ 证据评分   4.6 分 &lt; 及格线 6.5，还剩 2 次重写机会     ← 发现问题
+  ↻ 04. ④ 重写查询   第 1/2 次重写：账号被锁定 多久才能再登      ← 换个说法
+  ✓ 05. ② 检索资料   用「账号被锁定 多久才能再登」召回 4 条证据   ← 重新检索
+  ✓ 06. ③ 证据评分   6.9 分 ≥ 及格线 6.5，证据可用              ← 通过了
+  ✓ 07. ⑤ 生成答案   基于 4 条证据生成答案</code></pre>
+</div>
+
+<p>第 3 步到第 6 步这个<strong>环</strong>，就是这个项目最有价值的十几行代码的成果。
+<strong>面试时把这段轨迹打印出来，比讲十句"我实现了自纠正 RAG"都有说服力。</strong></p>
+
+<div class="codewrap"><span class="tag">问题 3 · 闲聊走直答</span>
+<pre><code>提问：你好，你是谁？
+路由结果：direct      证据条数：0      重写次数：0
+
+── 执行轨迹 ──
+  ✓ 01. ① 路由判断   判定为「direct」
+  ✓ 02. ⑤ 生成答案   基于 0 条证据生成答案</code></pre>
+</div>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：你这个项目和普通 RAG 项目有什么区别？</strong></p>
+  <p>这是必问题。按这个顺序答，层次感最强：</p>
+  <ol>
+    <li><strong>指出问题</strong>：普通 RAG 是单向链，检索质量差就直接崩，系统自己不知道。</li>
+    <li><strong>给出方案</strong>：我在检索和生成之间插了一个评估节点，把链路变成带反馈的环。
+        评分不达标就触发查询重写并重新检索。</li>
+    <li><strong>说明约束</strong>：重写不能无限来，所以设了计数器上限；
+        同时用及格线和 recursion_limit 做双重保险。</li>
+    <li><strong>点出本质</strong>：这个设计的价值是让系统从<strong>"不知道自己不知道"</strong>
+        变成<strong>"知道自己不知道"</strong>。</li>
+  </ol>
+  <p><strong>追问：这套东西有名字吗？</strong></p>
+  <p>答：思路来自 <strong>Self-RAG</strong> 和 <strong>CRAG（Corrective RAG）</strong>，
+  核心都是"引入自我评估环节"。区别在于 Self-RAG 还会评估生成内容本身有没有依据，
+  也就是本项目的 <code>reflect</code> 节点做的事。</p>
+  <p><strong>追问：重写会不会让延迟翻倍？你怎么权衡？</strong></p>
+  <p>答：会。所以第一，及格线不能定太低；第二，重写次数上限本身也是成本闸门；
+  第三，如果对延迟敏感，可以把评分模型换成更小更快的模型（评分是个简单判断，
+  小模型足够），用"贵模型只用在生成环节"的方式摊薄成本。</p>
+</div>
+
+<h2 id="s6">S6 · 记忆与人机协同 ★</h2>
+<p><span class="stage">阶段 6</span> <span class="small">对应文件：<code>src/docpilot/graphs/main.py</code>、<code>nodes/review.py</code>、<code>nodes/reflect.py</code></span></p>
+
+<div class="note box">
+  <span class="bt">🔥 第二个加分项</span>
+  <p>「能暂停几天等人审批」这件事，普通程序很难做到 —— HTTP 有超时、进程重启状态就没了。
+  LangGraph 靠检查点把这件事变成了一等公民。这是它相对其他框架最硬的差异化能力。</p>
+</div>
+
+<h3>① 一句话目标</h3>
+<p>给图加上两样东西：<strong>记得住多轮对话</strong>，以及 <strong>高风险内容能停下来等人拍板</strong>。</p>
+
+<h3>② 图示</h3>
+<div class="flow">
+<span class="node">生成答案</span> <span class="arrow">→</span> <span class="node p">⑥ 反思自查</span><br>
+<span style="padding-left:20px"></span><span class="arrow">├─</span> <span class="lbl">普通内容</span> <span class="arrow">──────────────→</span> <span class="node g">⑧ 定稿</span> <span class="arrow">→</span> <span class="node">END</span><br>
+<span style="padding-left:20px"></span><span class="arrow">└─</span> <span class="lbl">敏感 / 有编造成分</span> <span class="arrow">→</span> <span class="node a">⑦ 人工审核 ⏸</span> <span class="arrow">→</span> <span class="node g">⑧ 定稿</span>
+</div>
+
+<table>
+<thead><tr><th style="width:150px">新增的东西</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>reflect</code> 节点</td><td>答案生成后再审一遍：有没有编造？内容敏不敏感？</td></tr>
+<tr><td><code>human_review</code> 节点</td><td>需要人拍板时，用 <code>interrupt()</code> 把图<strong>暂停</strong></td></tr>
+<tr><td><code>finalize</code> 节点</td><td>统一收口，同时给两条分支提供汇聚点</td></tr>
+<tr><td><strong>checkpointer</strong></td><td>让整张图具备"记忆"和"可暂停"的能力</td></tr>
+</tbody>
+</table>
+
+<h3>③ 代码</h3>
+
+<p><strong>第一步：让图有记忆。</strong>就是编译时多传一个参数：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">from</span> langgraph.checkpoint.memory <span class="k">import</span> InMemorySaver
+
+<span class="k">def</span> <span class="f">build_graph</span>(*, checkpointer=<span class="k">None</span>, checkpointer_kind: <span class="k">str</span> = <span class="s">"memory"</span>):
+    builder = <span class="f">StateGraph</span>(DocPilotState)
+    <span class="c"># ...（注册节点、连边，和 S5 一样，多加了 reflect / human_review / finalize）</span>
+
+    cp = checkpointer <span class="k">if</span> checkpointer <span class="k">is</span> <span class="k">not</span> <span class="k">None</span> <span class="k">else</span> <span class="f">make_checkpointer</span>(checkpointer_kind)
+    <span class="k">return</span> builder.<span class="f">compile</span>(checkpointer=cp)     <span class="c"># ← 就这一行，图有了记忆</span></code></pre>
+</div>
+
+<p><strong>第二步：用 thread_id 区分会话。</strong></p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">new_thread_config</span>(thread_id: <span class="k">str</span>, *, recursion_limit: <span class="k">int</span> = <span class="n">25</span>) -> <span class="k">dict</span>:
+    <span class="k">return</span> {
+        <span class="s">"configurable"</span>: {<span class="s">"thread_id"</span>: thread_id},   <span class="c"># 会话编号，内存/数据库里的主键</span>
+        <span class="s">"recursion_limit"</span>: recursion_limit,        <span class="c"># 保险丝</span>
+    }
+
+<span class="c"># 同一个 config 反复用 → 接着上次聊</span>
+graph.<span class="f">invoke</span>(<span class="f">initial_state</span>(<span class="s">"第一个问题"</span>), config=config)
+graph.<span class="f">invoke</span>(<span class="f">initial_state</span>(<span class="s">"第二个问题"</span>), config=config)   <span class="c"># 它记得上一轮</span></code></pre>
+</div>
+
+<p><strong>第三步：人工审核节点。</strong>整个项目最短、但最关键的几行：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">from</span> langgraph.types <span class="k">import</span> interrupt
+
+_APPROVE_WORDS = {<span class="s">"approve"</span>, <span class="s">"yes"</span>, <span class="s">"ok"</span>, <span class="s">"通过"</span>, <span class="s">"同意"</span>, <span class="s">"确认"</span>}
+
+<span class="k">def</span> <span class="f">human_review</span>(state: DocPilotState) -> <span class="k">dict</span>:
+    <span class="s">"""暂停执行，等待人工确认"""</span>
+    answer = state.get(<span class="s">"answer"</span>, <span class="s">""</span>)
+    payload = HUMAN_REVIEW_PAYLOAD.<span class="f">format</span>(answer=answer, issues=<span class="s">"..."</span>)
+
+    decision = <span class="f">interrupt</span>(payload)          <span class="c"># ← 执行到这里「停住」，状态存进检查点</span>
+    <span class="c"># ↑ 恢复时，decision 就是外面通过 Command(resume=...) 传回来的值</span>
+
+    approved = <span class="f">str</span>(decision).<span class="f">strip</span>().<span class="f">lower</span>() <span class="k">in</span> _APPROVE_WORDS
+    <span class="k">return</span> {
+        <span class="s">"review_decision"</span>: <span class="s">"approve"</span> <span class="k">if</span> approved <span class="k">else</span> <span class="s">"reject"</span>,
+        <span class="s">"answer"</span>: answer <span class="k">if</span> approved <span class="k">else</span> answer + <span class="s">"\n\n⚠️ 人工审核未通过，已被拦截。"</span>,
+    }</code></pre>
+</div>
+
+<p><strong>第四步：恢复执行。</strong></p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">from</span> langgraph.types <span class="k">import</span> Command
+
+config = <span class="f">new_thread_config</span>(<span class="s">"cli-abc123"</span>)
+
+<span class="c"># 第一次调用：跑到 interrupt() 就停住，返回结果里带 __interrupt__</span>
+state = graph.<span class="f">invoke</span>(<span class="f">initial_state</span>(question), config=config)
+<span class="k">if</span> state.get(<span class="s">"__interrupt__"</span>):
+    <span class="f">print</span>(state[<span class="s">"__interrupt__"</span>][<span class="n">0</span>].value)      <span class="c"># 把待审内容展示给人看</span>
+    decision = <span class="f">input</span>(<span class="s">"approve / reject： "</span>)
+
+    <span class="c"># 第二次调用：用同一个 thread_id 恢复，Command 里的值成为 interrupt() 的返回值</span>
+    state = graph.<span class="f">invoke</span>(<span class="f">Command</span>(resume=decision), config=config)</code></pre>
+</div>
+
+<h3>④ 逐段拆解</h3>
+
+<p><strong>为什么需要 checkpointer，不能自己存到一个变量里？</strong></p>
+<p>因为图暂停之后，进程可能退出。内存里的变量没了，恢复就无从谈起。
+检查点把状态<strong>序列化写进外部存储</strong>，所以理论上可以停几天再恢复。</p>
+
+<p><strong>thread_id 到底是什么？</strong></p>
+<p>它就是检查点表里的一个主键。所有存档按 <code>(thread_id, checkpoint_id)</code> 组织。
+换个 thread_id 就是另一个平行世界，状态天然隔离，不需要额外加锁 ——
+这是 LangGraph 能同时支撑多用户的设计基础。</p>
+
+<div class="danger box">
+  <span class="bt">❌ 用 interrupt 必须知道的两件事</span>
+  <p><strong>1. 没有 checkpointer 就用不了 interrupt。</strong>
+  状态没地方存，拦截下来就找不回去了，LangGraph 会直接报错。</p>
+  <p><strong>2. 节点恢复时是「从头重新执行」的，不是从 interrupt() 那一行接着跑。</strong>
+  所以 <code>interrupt()</code> 之前的代码会被再执行一遍。
+  如果前面有"发消息、扣款、写数据库"这类有副作用的操作，会重复执行 ——
+  正确做法是把副作用挪到 <code>interrupt()</code> 之后，或者把操作做成幂等。</p>
+</div>
+
+<p><strong>reflect 节点为什么也要独立出来？</strong></p>
+<p>和 S5 里"评分节点为什么要独立"是同一个道理：<strong>生成和校验要分开。</strong>
+让同一个调用既写答案又挑自己的错，效果会打折。换一个调用、换一套提示词、
+把任务定义成"挑错"，准确率会明显高一截。</p>
+<p>另外这里的 <code>need_human</code> 判断有一条硬规则：</p>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code>need_human = <span class="f">bool</span>(payload.get(<span class="s">"need_human"</span>, <span class="k">False</span>))
+
+<span class="c"># 保险丝：只要发现有编造内容，一律人工确认，不给模型"自我豁免"的机会</span>
+<span class="k">if</span> <span class="k">not</span> grounded:
+    need_human = <span class="k">True</span></code></pre>
+</div>
+<p class="small">这个写法的意义是：<strong>不要完全信任模型的自评结果。</strong>
+在关键路径上，永远留一条由代码控制的硬规则。</p>
+
+<p><strong>多轮记忆是怎么实现的？</strong></p>
+<p>就靠 <code>messages</code> 字段的 <code>add_messages</code> reducer。
+第二次调用同一个 thread_id 时，LangGraph 把上次的消息列表读回来，
+新消息通过 reducer 追加在后面 —— 模型于是"记得"之前聊过什么。</p>
+<p class="small">注意区分两种"记忆"：这里解决的是<strong>同一会话内的对话记忆</strong>。
+如果要跨会话记住"这个用户偏好简短回答"这类长期信息，
+要用另一个东西叫 <code>Store</code>，和 checkpointer 不是一回事。面试常考这个区分。</p>
+
+<h3>⑤ 跑起来看什么</h3>
+<p>跑命令行版，输入一个会触发审核的问题，再输入 <code>approve</code>：</p>
+
+<div class="codewrap"><span class="tag">bash</span>
+<pre><code>python scripts/run_cli.py</code></pre>
+</div>
+
+<div class="codewrap"><span class="tag">输出节选</span>
+<pre><code>──────────────────────────────────────────────────────────────
+⚠️ 以下内容包含需要人工确认的信息，请审核后再发送。
+
+【拟发送的答案】
+根据知识库中的资料，整理如下：...
+以上内容来自上述资料 [1]。<span class="c">建议</span>以文档的最新版本为准...
+
+【审核发现的问题】
+（无明显问题，但按策略仍需人工确认）
+──────────────────────────────────────────────────────────────
+你的决定（approve 通过 / reject 打回）： ▊        ← 图在这里暂停，等你输入</code></pre>
+</div>
+
+<p>输入 <code>approve</code> 之后，你会看到完整的执行轨迹：</p>
+
+<div class="codewrap"><span class="tag">输出</span>
+<pre><code>── 执行轨迹 ──
+  ✓ 01. ① 路由判断   判定为「retrieve」
+  ✓ 02. ② 检索资料   用「账号被锁了多久才能再登」召回 4 条证据
+  ! 03. ③ 证据评分   4.6 分 &lt; 及格线 6.5，还剩 2 次重写机会
+  ↻ 04. ④ 重写查询   第 1/2 次重写：账号被锁定 多久才能再登
+  ✓ 05. ② 检索资料   用「账号被锁定 多久才能再登」召回 4 条证据
+  ✓ 06. ③ 证据评分   6.9 分 ≥ 及格线 6.5，证据可用
+  ✓ 07. ⑤ 生成答案   基于 4 条证据生成答案（390 字）
+  ! 08. ⑥ 反思自查   内容敏感（含建议/结论性判断），转人工确认
+  ! 09. ⑦ 人工审核   人工审核未通过：reject 依据不足        ← 打回也走这里
+  ✓ 10. ⑧ 定稿输出   输出最终答案（439 字），引用 4 条资料</code></pre>
+</div>
+
+<p><strong>一条轨迹，把 S5 和 S6 的能力全串起来了。</strong>
+这就是最后要交付给面试官看的东西。</p>
+
+<p>还可以在命令行里输入 <code>:history</code> 看时间旅行：</p>
+<div class="codewrap"><span class="tag">输出</span>
+<pre><code>── 历史存档（每次节点执行都会存一份）──
+  第 0 步 → 下一步：['route_question']
+  第 1 步 → 下一步：['retrieve']
+  第 2 步 → 下一步：['grade_documents']
+  ...
+  第 9 步 → 下一步：（结束）</code></pre>
+</div>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：哪些场景需要人机协同？你怎么落地？</strong></p>
+  <p><strong>场景</strong>：高风险操作（转账、删数据、发公告）、合规要求留痕、
+  低置信度分流、内容对外发布前的终审。</p>
+  <p><strong>落地要点</strong>（这几个点说出来会显得你真做过）：</p>
+  <ul>
+    <li>检查点选型：开发用内存，生产必须用持久化实现（PostgresSaver），否则重启就丢</li>
+    <li>审核界面的超时与催办策略 —— 人可能几小时不看，要有兜底（超时自动拒绝 or 转下一级）</li>
+    <li>审核结果要留痕，用于事后审计和模型优化</li>
+    <li><strong>副作用幂等</strong> —— 这是最容易出事的地方，节点恢复会重跑，别让重复执行造成损失</li>
+    <li>分级自治：高置信度自动通过、中等置信度通知但不阻塞、低置信度必须人工确认</li>
+  </ul>
+  <p><strong>追问：checkpointer 和 Store 有什么区别？</strong></p>
+  <p>答：checkpointer 管<strong>一个会话内部</strong>的状态快照，用 thread_id 索引，
+  支持暂停恢复和时间旅行；Store 是<strong>跨会话</strong>的键值存储，
+  用来记"用户长期偏好"这类应该活得比单次对话更久的信息。两者职责不重叠。</p>
+  <p><strong>追问：你怎么做 LLM 应用的质量控制？</strong></p>
+  <p>答：三道闸门，这个说法比单说"我写了提示词让模型别胡说"有力得多 ——</p>
+  <ol>
+    <li><strong>生成前</strong>：RAG 提供事实依据，提示词明确"只能用给定资料"</li>
+    <li><strong>生成后</strong>：独立的反思节点做核查，不通过就打回或降级</li>
+    <li><strong>交付前</strong>：高风险内容走人工确认</li>
+  </ol>
+</div>
+
+
+<h2 id="s7">S7 · 界面与演示</h2>
+<p><span class="stage">阶段 7</span> <span class="small">对应文件：<code>app.py</code>（界面）、<code>scripts/run_cli.py</code>（命令行）、<code>tests/test_graph.py</code>（测试）</span></p>
+
+<h3>① 一句话目标</h3>
+<p>把它变成一个<strong>能演示</strong>的东西，并准备好现场演示的流程。</p>
+
+<h3>② 界面里最值得展示的设计</h3>
+
+<p>界面左边是对话，右边是<strong>执行轨迹面板</strong>和<strong>召回证据面板</strong>。重点在右边：</p>
+
+<div class="flow">
+<span class="node">💬 对话</span> <span class="lbl">（用户视角）</span>
+<span class="arrow">│</span>
+<span class="node p">🧭 执行轨迹</span> <span class="lbl">← 面试的杀手锏：能看见"系统刚才走了哪几步"</span><br>
+<span class="node p">📚 召回的证据</span> <span class="lbl">← 证明答案有依据，不是编的</span><br>
+<span class="node p">🗺️ 图的形状</span> <span class="lbl">← 可以指着这里讲架构</span><br>
+<span class="node p">🕰️ 时间旅行</span> <span class="lbl">← 列出所有历史存档</span>
+</div>
+
+<p><strong>为什么这几个面板比聊天本身重要？</strong></p>
+<p>因为一问一答的界面，看不出你的项目和"套壳 ChatGPT"有什么区别。
+<strong>能看见中间过程</strong>，才是这类项目的价值所在 ——
+用户知道答案是从哪来的，开发者知道问题出在哪一步。</p>
+
+<h3>③ 关键代码：为什么要用 stream 而不是 invoke</h3>
+<div class="codewrap"><span class="tag">python</span>
+<pre><code><span class="k">def</span> <span class="f">run_graph</span>(payload, *, on_node=<span class="k">None</span>):
+    graph = <span class="f">get_graph</span>()
+    config = <span class="f">new_thread_config</span>(st.session_state.thread_id)
+
+    <span class="c"># 用 stream_mode="updates" 而不是 invoke —— 每走完一个节点就吐一块</span>
+    <span class="k">for</span> chunk <span class="k">in</span> graph.<span class="f">stream</span>(payload, config=config, stream_mode=<span class="s">"updates"</span>):
+        <span class="k">for</span> node_name, update <span class="k">in</span> chunk.<span class="f">items</span>():
+            <span class="k">if</span> on_node:
+                <span class="f">on_node</span>(node_name)          <span class="c"># 界面上实时显示"现在走到哪一步"</span>
+
+    snapshot = graph.<span class="f">get_state</span>(config)     <span class="c"># 跑完读回完整状态</span>
+    <span class="k">return</span> snapshot.values</code></pre>
+</div>
+
+<p><strong>invoke 只给你最终结果，中间发生了什么完全看不到。</strong>
+调试的时候这一点会让你非常痛苦 —— 你不知道是路由判错了、
+检索没命中、还是评分虚高。用 stream 就能一步步看着它走。</p>
+
+<p class="small">LangGraph 还支持其他几种流式模式：<code>values</code>（每个超步后吐完整状态）、
+<code>messages</code>（吐模型输出的 token，用来做打字机效果）、<code>debug</code>（吐运行时底层事件）。
+它们可以在一次订阅里组合使用。</p>
+
+<h3>④ 测试</h3>
+<p><code>tests/test_graph.py</code> 用最少的代码覆盖了最关键的几条路径：</p>
+<table>
+<thead><tr><th style="width:280px">测试</th><th>在验证什么</th></tr></thead>
+<tbody>
+<tr><td><code>test_tokenize_...</code></td><td>中英混合文本能正确切词</td></tr>
+<tr><td><code>test_retriever_returns_relevant_document</code></td><td>问密码锁定能召回登录文档</td></tr>
+<tr><td><code>test_self_correction_triggers_rewrite</code></td><td><strong>低分场景真的会触发重写，且重写后通过</strong></td></tr>
+<tr><td><code>test_small_talk_skips_retrieval</code></td><td>闲聊不走检索分支</td></tr>
+<tr><td><code>test_human_review_interrupts_and_resumes</code></td><td>真的会中断，且 approve / reject 都能正确恢复</td></tr>
+<tr><td><code>test_multi_turn_memory_accumulates_messages</code></td><td><strong>两轮之后历史消息真的累积成 2 条</strong>（验证 reducer 配置正确）</td></tr>
+<tr><td><code>test_different_threads_are_isolated</code></td><td>不同会话之间状态不串味</td></tr>
+</tbody>
+</table>
+
+<div class="codewrap"><span class="tag">bash</span>
+<pre><code>pytest tests/ -v
+<span class="c"># 13 passed in 1.04s</span></code></pre>
+</div>
+
+<h3>⑤ 面试现场演示脚本（建议照着走）</h3>
+
+<table>
+<thead><tr><th style="width:40px">#</th><th style="width:220px">动作</th><th>说什么</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>打开 <code>README.md</code>，指着架构图</td><td>"这是一个带反馈回路的 RAG 系统，核心是把单向链改成了带评估的环。"</td></tr>
+<tr><td>2</td><td>跑 <code>python src/docpilot/graphs/s5_crag.py</code></td><td>"看第 3 步到第 6 步 —— 分数 4.6 不及格，它自己重写了查询，重新检索后 6.9 分通过。"</td></tr>
+<tr><td>3</td><td>跑 <code>python scripts/run_cli.py</code>，问一个问题</td><td>"图在这里暂停了，等人工确认。状态已经存进检查点，理论上可以停几天。"</td></tr>
+<tr><td>4</td><td>输入 <code>:history</code></td><td>"这是所有历史存档，可以回到任意一步重跑 —— 时间旅行。"</td></tr>
+<tr><td>5</td><td>打开 <code>app.py</code> 的界面</td><td>"右侧是执行轨迹和召回证据，用户能看到答案的依据，开发者能看到问题出在哪一步。"</td></tr>
+<tr><td>6</td><td>跑 <code>pytest tests/ -v</code></td><td>"关键路径都有测试，包括自纠正循环和中断恢复。"</td></tr>
+</tbody>
+</table>
+
+<div class="interview box">
+  <span class="bt">🎯 面试考点</span>
+  <p><strong>问：你的项目怎么调试？出问题了怎么定位？</strong></p>
+  <p>答：三个手段，从轻到重 ——</p>
+  <ol>
+    <li><strong>执行轨迹</strong>：每个节点都往状态里追加一条记录（走了哪步、拿到什么、分数多少），
+        界面上直接可视化。大部分问题看一眼轨迹就能定位。</li>
+    <li><strong>流式执行</strong>：用 <code>stream_mode="updates"</code> 逐节点观察，
+        能精确知道是哪一步开始跑偏的。</li>
+    <li><strong>时间旅行</strong>：<code>get_state_history()</code> 列出所有存档，
+        可以把图倒回出错前那一步、改掉输入、重跑后面的流程 —— 不用重头来一遍。</li>
+  </ol>
+  <p>可以再补一句：生产环境一般直接接 LangSmith 做全链路追踪，
+  我这个自建的轨迹是为了不依赖外部服务、方便本地演示。</p>
+</div>
+
+<h2 id="apA">附录 A · 术语速查表</h2>
+<p class="small">面试前扫一遍。左列是中文（英文），中间是一句话解释，右列是"在项目里的哪里用到了"。</p>
+
+<h3>LangGraph 核心</h3>
+<table>
+<thead><tr><th style="width:210px">术语</th><th>一句话解释</th><th style="width:200px">项目位置</th></tr></thead>
+<tbody>
+<tr><td><strong>State</strong>（状态）<br><span class="small">/steɪt/</span></td><td>整个流程里传来传去的共享数据，用 TypedDict 定义</td><td><code>state.py</code></td></tr>
+<tr><td><strong>Node</strong>（节点）</td><td>一个函数，读状态、干活、返回要更新的字段</td><td><code>nodes/*.py</code></td></tr>
+<tr><td><strong>Edge</strong>（边）</td><td>规定下一步去哪儿，普通边是无条件跳转</td><td><code>graphs/*.py</code></td></tr>
+<tr><td><strong>Conditional Edge</strong><br>（条件边）</td><td>读一眼状态再决定往哪走，是"分支"的实现方式</td><td><code>nodes/conditions.py</code></td></tr>
+<tr><td><strong>Reducer</strong>（归约函数）<br><span class="small">/rɪˈdjuːsə/</span></td><td>同一字段被多次写入时的合并规则，默认覆盖，可改成追加/累加</td><td><code>state.py</code></td></tr>
+<tr><td><strong>START / END</strong></td><td>图的两个虚拟节点，表示入口和出口</td><td><code>graphs/*.py</code></td></tr>
+<tr><td><strong>compile()</strong>（编译）</td><td>把图定义校验并打包成可执行对象</td><td><code>graphs/*.py</code></td></tr>
+<tr><td><strong>invoke / stream</strong></td><td>执行图的两种方式：一次性拿结果 / 边跑边吐进度</td><td><code>app.py</code>、<code>run_cli.py</code></td></tr>
+<tr><td><strong>subgraph</strong>（子图）</td><td>把一张图当作另一个节点嵌进大图里</td><td>进阶用法，本项目未展开</td></tr>
+<tr><td><strong>Send</strong></td><td>向指定节点发一份自定义的部分状态，用来做动态扇出</td><td>进阶用法</td></tr>
+<tr><td><strong>Command</strong></td><td>节点可以返回的对象，同时携带状态更新和路由指令</td><td><code>review.py</code>（resume 用）</td></tr>
+</tbody>
+</table>
+
+<h3>记忆与中断</h3>
+<table>
+<thead><tr><th style="width:210px">术语</th><th>一句话解释</th><th style="width:200px">项目位置</th></tr></thead>
+<tbody>
+<tr><td><strong>Checkpointer</strong><br>（检查点/存档器）</td><td>图每走一步就把状态存一份的装置，是记忆和暂停的基础</td><td><code>graphs/main.py</code></td></tr>
+<tr><td><strong>thread_id</strong>（会话编号）</td><td>检查点里的主键，决定"读回哪一次对话的状态"</td><td><code>new_thread_config()</code></td></tr>
+<tr><td><strong>InMemorySaver</strong></td><td>存内存的检查点实现，重启即失，适合开发测试</td><td><code>graphs/main.py</code></td></tr>
+<tr><td><strong>SqliteSaver / PostgresSaver</strong></td><td>存文件 / 存数据库的检查点实现，后者是生产标配</td><td><code>graphs/main.py</code></td></tr>
+<tr><td><strong>Store</strong></td><td>跨会话的长期记忆存储，和 checkpointer 职责不同</td><td>进阶用法</td></tr>
+<tr><td><strong>interrupt()</strong><br>（中断）</td><td>在节点里调用它，图就停住等人，状态被持久化</td><td><code>nodes/review.py</code></td></tr>
+<tr><td><strong>Command(resume=)</strong></td><td>恢复执行时传入，值会成为 interrupt() 的返回值</td><td><code>run_cli.py</code>、<code>app.py</code></td></tr>
+<tr><td><strong>HITL</strong>（Human-in-the-Loop）</td><td>人机协同：关键环节插入人工确认</td><td>整个 S6</td></tr>
+<tr><td><strong>时间旅行</strong>（Time Travel）</td><td>用 <code>get_state_history()</code> 回到历史任意一步重跑</td><td><code>:history</code> 命令</td></tr>
+<tr><td><strong>recursion_limit</strong></td><td>最多走几步的保险丝，超了抛 GraphRecursionError</td><td><code>new_thread_config()</code></td></tr>
+</tbody>
+</table>
+
+<h3>RAG 与检索</h3>
+<table>
+<thead><tr><th style="width:210px">术语</th><th>一句话解释</th><th style="width:200px">项目位置</th></tr></thead>
+<tbody>
+<tr><td><strong>RAG</strong><br>（Retrieval-Augmented Generation）</td><td>先查资料再生成答案，让回答有据可依</td><td>整个 S4 之后</td></tr>
+<tr><td><strong>chunk</strong>（文本块）</td><td>把长文档切成的检索最小单位</td><td><code>retrievers/loader.py</code></td></tr>
+<tr><td><strong>overlap</strong>（重叠）</td><td>相邻文本块之间重复的一段，防止语义被硬切断</td><td><code>retrievers/loader.py</code></td></tr>
+<tr><td><strong>BM25</strong></td><td>经典关键词检索算法，靠词频和逆文档频率打分</td><td><code>retrievers/bm25.py</code></td></tr>
+<tr><td><strong>bigram</strong>（双字片段）</td><td>中文分词的一种朴素替代：切成相邻两字</td><td><code>retrievers/bm25.py</code></td></tr>
+<tr><td><strong>embedding</strong>（词向量）</td><td>把文本变成一串数字，让"意思相近"可以计算</td><td><code>retrievers/vector.py</code></td></tr>
+<tr><td><strong>向量检索</strong>（Vector Search）</td><td>比语义相似度的检索方式</td><td><code>retrievers/vector.py</code></td></tr>
+<tr><td><strong>Rerank</strong>（重排序）</td><td>先粗召回一批，再用精排模型挑出最相关的几条</td><td>进阶：可作为 S5 的替代方案</td></tr>
+<tr><td><strong>CRAG / Self-RAG</strong></td><td>带自我评估与纠正的 RAG 变体</td><td>S5 的核心思路来源</td></tr>
+<tr><td><strong>Multi-Query / HyDE</strong></td><td>两种查询改写策略：多角度提问 / 先编假设答案再检索</td><td>可作为 S5 的增强</td></tr>
+</tbody>
+</table>
+
+<h3>模型与工程</h3>
+<table>
+<thead><tr><th style="width:210px">术语</th><th>一句话解释</th><th style="width:200px">项目位置</th></tr></thead>
+<tbody>
+<tr><td><strong>Prompt</strong>（提示词）</td><td>给模型的指令，本项目集中放在一个文件里管理</td><td><code>prompts.py</code></td></tr>
+<tr><td><strong>System / Human / AI / Tool Message</strong></td><td>四种消息类型，分别代表角色设定、用户输入、模型输出、工具结果</td><td><code>nodes/*.py</code></td></tr>
+<tr><td><strong>Tool Calling</strong>（工具调用）</td><td>模型输出"我想调用某函数"，框架负责执行</td><td><code>tools.py</code>、<code>s3_react.py</code></td></tr>
+<tr><td><strong>bind_tools</strong></td><td>把工具清单注册给模型，让它知道有什么可用</td><td><code>nodes/../s3_react.py</code></td></tr>
+<tr><td><strong>ToolNode</strong></td><td>LangGraph 提供的工具执行节点</td><td><code>s3_react.py</code></td></tr>
+<tr><td><strong>ReAct</strong></td><td>Reasoning + Acting，边推理边行动的模式</td><td>S2 / S3</td></tr>
+<tr><td><strong>幻觉</strong>（Hallucination）</td><td>模型编造出没有依据的内容</td><td>S5 的反思节点专门对付它</td></tr>
+<tr><td><strong>结构化输出</strong></td><td>让模型按指定 JSON 结构返回，便于程序解析</td><td><code>grade.py</code>、<code>reflect.py</code></td></tr>
+<tr><td><strong>可观测性</strong>（Observability）</td><td>能看清系统内部每一步发生了什么</td><td><code>utils/tracing.py</code></td></tr>
+<tr><td><strong>Mermaid</strong></td><td>一种用文本描述流程图的语法</td><td><code>utils/viz.py</code></td></tr>
+</tbody>
+</table>
+
+
+<h2 id="apB">附录 B · 高频面试题 30 问</h2>
+<p class="small">按"概念理解 / 设计实现 / 踩坑排错 / 对比延伸"四组排列。每题给的是答题骨架，不是标准答案。</p>
+
+<h3>第一组 · 概念理解（1–8）</h3>
+
+<table>
+<thead><tr><th style="width:38px">#</th><th style="width:290px">问题</th><th>答题骨架</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>LangGraph 是什么？和 LangChain 什么关系？</td><td>LangChain 供零件，LangGraph 管调度；链只能线性，图能分支/循环/暂停</td></tr>
+<tr><td>2</td><td>State 是什么？reducer 有什么用？</td><td>共享数据；合并规则，默认覆盖，<code>add_messages</code> 是追加；举"不加 reducer 就失忆"的例子</td></tr>
+<tr><td>3</td><td>节点和边有什么区别？</td><td>节点算，边路由。节点返回值是增量，条件边只读状态做判断，不产生副作用</td></tr>
+<tr><td>4</td><td>条件边具体怎么工作？</td><td>传一个返回字符串的函数，用映射表把返回值对应到目标节点；返回值可以直接是 END</td></tr>
+<tr><td>5</td><td>compile() 做了什么？</td><td>结构校验（节点/边/reducer 冲突）+ 打包成可执行对象 + 生成可绘制的图结构</td></tr>
+<tr><td>6</td><td>checkpointer 是什么？有哪些实现？</td><td>逐步存档装置；内存 / SQLite / Postgres 三种，按环境选</td></tr>
+<tr><td>7</td><td>thread_id 的作用？</td><td>存档主键，决定读回哪次会话；换 ID 就是全新会话，天然隔离多用户</td></tr>
+<tr><td>8</td><td>LangGraph 的 API 分几层？</td><td>预构建图 / 中层 Agent API / 底层 StateGraph；能用高层就用高层</td></tr>
+</tbody>
+</table>
+
+<h3>第二组 · 设计实现（9–16）</h3>
+
+<table>
+<thead><tr><th style="width:38px">#</th><th style="width:290px">问题</th><th>答题骨架</th></tr></thead>
+<tbody>
+<tr><td>9</td><td>为什么把流程画成图，而不是用纯 ReAct？</td><td>可预测性。纯 ReAct 每次路径都可能不同，难复现、难定位、成本不可控。确定性步骤固化成节点，只在需要判断处留条件边</td></tr>
+<tr><td>10</td><td>状态里应该放什么？什么不该放？</td><td>放要跨节点共享的、可序列化的数据。不放连接对象、文件句柄、大对象；Document 也转成 dict 更稳</td></tr>
+<tr><td>11</td><td>多轮记忆怎么实现的？</td><td><code>messages</code> 字段 + <code>add_messages</code> reducer + checkpointer；要说清两者缺一不可</td></tr>
+<tr><td>12</td><td>怎么防止循环跑死？</td><td>三道保险：及格线、计数器、recursion_limit。强调第三道是兜底不是正常控制流</td></tr>
+<tr><td>13</td><td>检索为什么用节点不用工具？</td><td>流程确定的部分用节点（可控、可评分、可调试），需要模型自主决策的才用工具</td></tr>
+<tr><td>14</td><td>文档怎么切块？chunk_size 怎么定？</td><td>优先按语义边界切，其次按长度；加 10%~15% 重叠；用评测集调，别拍脑袋</td></tr>
+<tr><td>15</td><td>BM25 和向量检索怎么选？</td><td>BM25 管字面命中（错误码最准），向量管语义相似；生产常用混合检索 + RRF 融合</td></tr>
+<tr><td>16</td><td>自纠正的阈值怎么定？</td><td>拍初值 + 跑评测调；太低不起作用，太高会频繁重写、延迟翻倍</td></tr>
+</tbody>
+</table>
+
+<h3>第三组 · 踩坑排错（17–23）</h3>
+
+<table>
+<thead><tr><th style="width:38px">#</th><th style="width:290px">问题</th><th>答题骨架</th></tr></thead>
+<tbody>
+<tr><td>17</td><td>消息列表不加 reducer 会怎样？</td><td>新消息覆盖旧的，模型立刻"失忆"，ReAct 循环直接断掉。这是最经典的坑</td></tr>
+<tr><td>18</td><td>reducer 加错会有什么后果？</td><td>举个真实例子：轨迹字段加了 <code>add</code>，配合检查点后跨轮累积成乱麻。判断标准是"跨轮累积还是每轮重置"</td></tr>
+<tr><td>19</td><td>interrupt 报错 / 没反应？</td><td>两个原因：没配 checkpointer；恢复时 thread_id 变了。逐条排查</td></tr>
+<tr><td>20</td><td>中断恢复后副作用重复执行怎么办？</td><td>节点恢复是<strong>从头重跑</strong>。把副作用挪到 interrupt() 之后，或做成幂等</td></tr>
+<tr><td>21</td><td>工具执行报错怎么处理？</td><td>LangGraph 不吞异常，会抛出来。配重试策略，或用 <code>handle_tool_errors</code> 把错误变成 ToolMessage 让模型自己应对</td></tr>
+<tr><td>22</td><td>上下文越来越长怎么办？</td><td>裁剪（只留最近 N 轮）、摘要压缩（旧消息让模型总结成一句）、或按需检索历史</td></tr>
+<tr><td>23</td><td>状态里放了不可序列化对象会怎样？</td><td>检查点写入时会失败。所以状态里尽量放 dict/list/str/数字这些基础类型</td></tr>
+</tbody>
+</table>
+
+<h3>第四组 · 对比与延伸（24–30）</h3>
+
+<table>
+<thead><tr><th style="width:38px">#</th><th style="width:290px">问题</th><th>答题骨架</th></tr></thead>
+<tbody>
+<tr><td>24</td><td>LangGraph 和 AutoGen / CrewAI 有什么区别？</td><td>那些更偏"多智能体对话"的高层封装，上手快但控制力弱；LangGraph 是底层编排，控制力最强，适合需要精确控制流程和状态的场景。<strong>别贬低其他框架</strong>，讲适用场景差异</td></tr>
+<tr><td>25</td><td>你的方案和 Self-RAG / CRAG 什么关系？</td><td>思路同源：都引入自我评估。CRAG 侧重"检索结果不好就纠正"，Self-RAG 还会评估生成内容是否有依据 —— 本项目两者都做了</td></tr>
+<tr><td>26</td><td>checkpointer 和 Store 的区别？</td><td>checkpointer 管会话内状态快照，Store 管跨会话长期信息。职责不重叠</td></tr>
+<tr><td>27</td><td>怎么评价一个 RAG 系统好不好？</td><td>分检索和生成两段评：检索看 Recall@k / MRR；生成看忠实度（有没有编造）、答案相关性、引用准确率。没评测集的优化都是自嗨</td></tr>
+<tr><td>28</td><td>生产部署要注意什么？</td><td>checkpointer 换 Postgres；密钥进密钥管理服务；加限流和超时；接 LangSmith 做追踪；幂等设计；分级降级策略</td></tr>
+<tr><td>29</td><td>怎么降低延迟和成本？</td><td>分层用模型（评分用小的、生成用大的）；命中缓存直接返回；重写次数上限；并行化无依赖的节点</td></tr>
+<tr><td>30</td><td>这个项目还能怎么扩展？</td><td>多智能体 Supervisor（研究员/分析师/写作员）、混合检索、评测体系、人工审核后台、多租户隔离</td></tr>
+</tbody>
+</table>
+
+<div class="tip box">
+  <span class="bt">✅ 答题的总原则</span>
+  <p><strong>先给结论，再给理由，最后给取舍。</strong></p>
+  <p>比如被问"为什么用 BM25 不用向量检索"，别只说"因为简单"。
+  要说："<strong>我用的是 BM25</strong>（结论），
+  因为向量检索要下载几百 MB 模型、对精确串反而弱（理由），
+  <strong>代价是换个说法就找不到，所以我把检索层做成了可插拔的接口，随时能切</strong>（取舍）。"</p>
+  <p>有取舍意识的回答，和只有结论的回答，是两种层次。</p>
+</div>
+
+
+<h2 id="apC">附录 C · 报错急救包</h2>
+<p class="small">新手 90% 会撞上的 15 个错误。先在这里找，找不到再搜索。</p>
+
+<table>
+<thead><tr><th style="width:44px">#</th><th style="width:280px">报错 / 现象</th><th>原因与解法</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>ModuleNotFoundError: No module named 'langgraph'</code></td><td><strong>原因</strong>：虚拟环境没激活，或装到了别的 Python 上。<br><strong>解法</strong>：命令行前面要有 <code>(.venv)</code>；确认 <code>pip -V</code> 和 <code>python -V</code> 指向同一个环境</td></tr>
+<tr><td>2</td><td><code>ModuleNotFoundError: No module named 'docpilot'</code></td><td><strong>原因</strong>：包在 <code>src/</code> 下，Python 找不到。<br><strong>解法</strong>：用 <code>python src/docpilot/graphs/s1_basic.py</code> 的方式跑（脚本内部会加路径），或设置 <code>PYTHONPATH=src</code></td></tr>
+<tr><td>3</td><td><code>InvalidUpdateError</code> / 更新了未定义的字段</td><td><strong>原因</strong>：节点返回了状态里没声明的键。<br><strong>解法</strong>：检查 <code>state.py</code>，把新字段加进去</td></tr>
+<tr><td>4</td><td>多轮对话"失忆"，模型不记得上一轮</td><td><strong>原因</strong>：<code>messages</code> 字段没加 <code>add_messages</code> reducer，或被覆盖。<br><strong>解法</strong>：<code>messages: Annotated[list, add_messages]</code></td></tr>
+<tr><td>5</td><td><code>GraphRecursionError: Recursion limit of 25 reached</code></td><td><strong>原因</strong>：图里有环，走出不来了。<br><strong>解法</strong>：检查条件边的退出条件；确认计数器有在累加；必要时临时调大 <code>recursion_limit</code> 观察日志定位</td></tr>
+<tr><td>6</td><td>调用 <code>interrupt()</code> 报错 / 图没有暂停</td><td><strong>原因</strong>：<code>compile()</code> 时没传 <code>checkpointer</code>。<br><strong>解法</strong>：<code>builder.compile(checkpointer=InMemorySaver())</code></td></tr>
+<tr><td>7</td><td>恢复执行时从第一个节点重新开始跑</td><td><strong>原因</strong>：这是 LangGraph 的既定行为 —— 恢复时节点从头重跑。<br><strong>解法</strong>：把 interrupt() 之前的副作用挪走，或做成幂等；观察状态字段有没有被重复加</td></tr>
+<tr><td>8</td><td>恢复时找不到上次的会话</td><td><strong>原因</strong>：<code>thread_id</code> 变了（比如每次调用都 <code>uuid4()</code> 新生成一个）。<br><strong>解法</strong>：把 thread_id 存起来复用</td></tr>
+<tr><td>9</td><td><code>AuthenticationError: 401</code></td><td><strong>原因</strong>：API Key 错、过期、或没读到。<br><strong>解法</strong>：确认 <code>.env</code> 在项目根目录；打印 <code>settings.describe()</code> 看 Key 有没有被读到</td></tr>
+<tr><td>10</td><td><code>NotFoundError: 404</code> / 连不上接口</td><td><strong>原因</strong>：<code>base_url</code> 配错。<br><strong>解法</strong>：DeepSeek 是 <code>https://api.deepseek.com/v1</code>；通义千问是 <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code>。注意结尾的 <code>/v1</code> 别漏</td></tr>
+<tr><td>11</td><td><code>RateLimitError: 429</code></td><td><strong>原因</strong>：请求太频繁或余额不足。<br><strong>解法</strong>：加重试与指数退避；检查账户余额。项目里给模型配了 <code>max_retries=2</code></td></tr>
+<tr><td>12</td><td>Windows 下中文输出乱码 / <code>UnicodeEncodeError</code></td><td><strong>原因</strong>：控制台默认编码是 GBK。<br><strong>解法</strong>：执行 <code>chcp 65001</code> 切到 UTF-8；或在代码里显式指定 <code>encoding="utf-8"</code></td></tr>
+<tr><td>13</td><td>模型返回的 JSON 解析失败</td><td><strong>原因</strong>：模型在 JSON 外面裹了 markdown 代码块或客套话。<br><strong>解法</strong>：用宽容解析（本项目 <code>utils/jsonx.py</code>），依次尝试直接解析 → 剥代码块 → 截取花括号</td></tr>
+<tr><td>14</td><td>检索返回空列表导致后续报错</td><td><strong>原因</strong>：知识库为空，或 query 一个词都没命中。<br><strong>解法</strong>：检索器对空语料做保护返回空列表（本项目已处理）；节点里对空结果单独分支</td></tr>
+<tr><td>15</td><td>Streamlit 里状态每次刷新就丢</td><td><strong>原因</strong>：Streamlit 每次交互都会从头重跑整个脚本。<br><strong>解法</strong>：用 <code>st.session_state</code> 存状态；用 <code>@st.cache_resource</code> 缓存图和检索器（否则检查点会被重建，记忆失效）</td></tr>
+</tbody>
+</table>
+
+
+<h2 id="apD">附录 D · 项目故事线（STAR 结构）</h2>
+
+<p>面试让你"讲讲这个项目"时，别按功能清单背。用 STAR
+（Situation 背景 / Task 任务 / Action 行动 / Result 结果）讲一个<strong>有冲突、有决策</strong>的故事。</p>
+
+<h3>故事一：为什么要把 RAG 从"链"改成"环"</h3>
+<table class="kv" style="grid-template-columns:70px 1fr">
+<tr><td><b>S 背景</b></td><td>我先搭了标准 RAG：检索 → 生成。跑测试的时候发现一个问题 —— 用户问"账号被锁了多久才能再登"，检索回来的是另一篇文档，模型照样煞有介事地总结了一通。</td></tr>
+<tr><td><b>T 任务</b></td><td>要让系统能发现"这次没找对"，而不是硬编。</td></tr>
+<tr><td><b>A 行动</b></td><td>在检索和生成之间插了一个评估节点，让模型给召回证据打分（0~10）。分数低于 6.5 就触发查询重写，换个说法重新检索。同时加了两个保险：计数器限制最多重写 2 次，及格线保证分数够了立刻退出。</td></tr>
+<tr><td><b>R 结果</b></td><td>同一个问题，第一次 4.6 分不及格，重写成"账号被锁定 多久才能再登"之后 6.9 分通过，命中了正确文档。<strong>我就多了两个节点、十几行代码，系统从"不知道自己找错了"变成了"知道自己找错了"。</strong></td></tr>
+</table>
+
+<h3>故事二：一个 reducer 用错引发的 bug</h3>
+<table class="kv" style="grid-template-columns:70px 1fr">
+<tr><td><b>S 背景</b></td><td>我给"执行轨迹"字段用了 <code>add</code> 类型的 reducer，觉得日志嘛，当然要累加。</td></tr>
+<tr><td><b>T 任务</b></td><td>加上检查点做多轮对话之后，界面上轨迹越来越长，一轮提问的轨迹里混着上一轮的记录。</td></tr>
+<tr><td><b>A 行动</b></td><td>定位到根因：<strong>检查点会让同一个会话的状态跨轮保留，而 add 型 reducer 的语义是"旧值 + 新值"</strong>，所以历史轨迹一直堆着。改成显式拼接 + 覆盖语义，每轮重置。</td></tr>
+<tr><td><b>R 结果</b></td><td>轨迹干净了。更重要的是我总结出一条判断标准：<strong>加 reducer 之前先问"这个字段要跨轮累积，还是每轮重置"</strong>。历史消息要累积，执行轨迹要重置。</td></tr>
+</table>
+
+<h3>故事三：为什么默认用 BM25 而不是向量检索</h3>
+<table class="kv" style="grid-template-columns:70px 1fr">
+<tr><td><b>S 背景</b></td><td>一开始想直接用 Chroma + 中文 embedding 模型，结果部署时卡在下载几百 MB 的模型上，环境问题耗掉了大半天。</td></tr>
+<tr><td><b>T 任务</b></td><td>要让人能在几分钟内看到效果，而不是先花半天配环境。</td></tr>
+<tr><td><b>A 行动</b></td><td>把检索层抽象成统一接口 <code>BaseRetriever</code>，默认实现换成 BM25 —— 纯 Python、零依赖、装完就能跑。中文用双字片段（bigram）代替分词，不用装 jieba。向量检索保留成可选实现，改一行配置就能切。</td></tr>
+<tr><td><b>R 结果</b></td><td>从"装完依赖到看到第一个正确答案"从半天缩短到 30 秒。<strong>而且这个"可插拔"的设计本身就是加分项</strong> —— 它证明我在做架构上的权衡，而不只是把功能堆上去。</td></tr>
+</table>
+
+<h3>故事四：让系统能"停下来等人"</h3>
+<table class="kv" style="grid-template-columns:70px 1fr">
+<tr><td><b>S 背景</b></td><td>答案里出现"建议""必须"这类表述时，一旦答错后果比"答不上来"严重得多。需要在交付前加一道人工闸门。</td></tr>
+<tr><td><b>T 任务</b></td><td>让图能暂停、等人决策、再恢复执行，而且暂停期间状态不能丢。</td></tr>
+<tr><td><b>A 行动</b></td><td>用 <code>interrupt()</code> 在审核节点处暂停，配 <code>InMemorySaver</code> 把状态持久化，用 <code>thread_id</code> 作为恢复的线索，恢复时传 <code>Command(resume=decision)</code>。</td></tr>
+<tr><td><b>R 结果</b></td><td>命令行和界面里都能完整演示"暂停 → 人工审批 → 继续"的流程，approve 和 reject 两条路径都覆盖了测试。<strong>顺带踩了一个坑并解决：节点恢复时会从头重跑，所以 interrupt() 之前不能放有副作用的操作。</strong></td></tr>
+</table>
+
+<h3>故事五（如果被问"你最大的收获是什么"）</h3>
+<p>不要答"学会了 LangGraph 的 API"。答这个：</p>
+<p style="background:#f0e9ff; border-left:4px solid #6639ba; padding:12px 18px; border-radius:0 8px 8px 0;">
+"最大的收获是意识到，<strong>在做 LLM 应用时，"让模型更强"往往不是最优解，"让系统能发现自己的错误"才是。</strong><br><br>
+我加的那两个节点（评分、重写）没有让模型变聪明一点，但整个系统的可靠性上了一个台阶。
+这个思路我以前只在工程里见过（比如编译器的静态检查、数据库的事务），
+没想到在 AI 应用里同样成立。"
+</p>
+
+
+<h2 id="apE">附录 E · 自查清单</h2>
+
+<p>面试前对着过一遍，全部能答上来就差不多了。</p>
+
+<h3>能不能讲清楚</h3>
+<ul>
+  <li>☐ 用一张图说清整个项目的流程（别翻代码，白纸上画出来）</li>
+  <li>☐ 说清 State、Node、Edge、Reducer 四个词的含义，各举一个项目里的例子</li>
+  <li>☐ 说清"为什么不是纯链，而是图"</li>
+  <li>☐ 说清自纠正循环具体多了哪两个节点、怎么防止死循环</li>
+  <li>☐ 说清 interrupt 的三个前提（checkpointer、thread_id、Command(resume)）</li>
+  <li>☐ 说清 BM25 和向量检索的区别，以及你为什么选 BM25</li>
+  <li>☐ 讲出至少两个"我踩过的坑 + 怎么解决的"（第 3 章和故事二、四可以复用）</li>
+</ul>
+
+<h3>能不能动手改</h3>
+<ul>
+  <li>☐ 现场给状态加一个新字段，并在节点里读写它</li>
+  <li>☐ 现场加一个条件边分支</li>
+  <li>☐ 现场把阈值从 6.5 改成别的值，说明会发生什么</li>
+  <li>☐ 现场往 <code>data/docs/</code> 加一个文档，让系统能回答新问题</li>
+  <li>☐ 现场解释：如果把 <code>add_messages</code> 去掉，哪条测试会失败</li>
+</ul>
+
+<h3>能不能答上追问</h3>
+<ul>
+  <li>☐ 为什么评分节点用当前 query、生成节点用原问题？</li>
+  <li>☐ 每次重写会让延迟增加多少？你怎么权衡？</li>
+  <li>☐ 生产环境 checkpointer 该换成什么？</li>
+  <li>☐ 没有评测集的情况下，你怎么判断优化真的有效？</li>
+  <li>☐ 这个项目如果要做成多人协作的产品，还缺什么？</li>
+</ul>
+
+<div class="tip box">
+  <span class="bt">✅ 最后一句</span>
+  <p>面试官不指望你把每个细节都背下来。<strong>他真正在判断的是：你是"用过"，还是"想过"。</strong></p>
+  <p>"用过"的人会背 API；"想过"的人会讲取舍 —— 为什么这么设计、代价是什么、什么情况下我会换另一种做法。
+  这份报告里所有的"⚠️ 权衡"和"❌ 踩坑"段落，都是为了让你往后者靠。</p>
+</div>
+
+</main>
+</div>
+
+<footer>
+  <p><strong>DocPilot 教学报告</strong> · 基于 LangGraph 的自纠正 RAG 实践项目</p>
+  <p>项目代码：<code>D:/makeLangGrap</code>　|　详细说明见 <code>README.md</code>　|　每个阶段都能单独运行</p>
+  <p class="small">建议阅读顺序：第 0 章 → 第 1 章 → 第 3 章 → S1 → S5 → S6 → 附录 B。<br>
+  如果时间紧，只读 S5 和 S6 也能应付大部分面试提问。</p>
+</footer>
+</body>
+</html>

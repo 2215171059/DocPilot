@@ -1,0 +1,34 @@
+# DocPilot 依赖清单
+#
+# 安装：pip install -r requirements.txt
+# 国内加速：pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# ── 主角：LangGraph 编排框架 ──────────────────────────────
+langgraph>=1.0.0
+
+# ── LangChain 基础层（消息、模型接口、工具抽象）──────────────
+langchain>=1.0.0
+langchain-core>=1.0.0
+
+# ── 模型接入：OpenAI 兼容协议，DeepSeek / 通义千问 / Ollama 都能用 ──
+langchain-openai>=1.0.0
+
+# ── 检索与文档处理 ──────────────────────────────────────
+# langchain-community 提供 BM25Retriever（关键词检索，零模型下载）
+langchain-community>=0.4.0
+langchain-text-splitters>=1.0.0
+rank-bm25>=0.2.2
+pypdf>=5.0.0          # 想喂 PDF 给知识库时需要
+
+# ── 配置 ────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── 界面 ────────────────────────────────────────────────
+streamlit>=1.40.0
+
+# ── 测试 ────────────────────────────────────────────────
+pytest>=8.0.0
+
+# ── 可选：想从 BM25 升级到向量检索时再装（体积较大）──────────
+# chromadb>=0.5.0
+# sentence-transformers>=3.0.0
