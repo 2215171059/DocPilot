@@ -1,0 +1,15 @@
+# 统一行尾处理，避免 Windows / macOS / Linux 协作时整份文件被标记为已修改
+* text=auto eol=lf
+
+# Windows 批处理脚本必须保留 CRLF，否则 cmd 执行可能出错
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制文件不做行尾转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.docx binary
+*.pdf binary
+*.db binary
