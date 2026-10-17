@@ -1,7 +1,6 @@
 # DocPilot · 基于 LangGraph 的自纠正 RAG 智能文档助手
 
 > 一个"能讲、能跑、能改"的 LangGraph 实践项目。
-> 配套教学报告：[`docs/教学报告.html`](docs/教学报告.html) —— 从零讲到面试。
 
 ---
 
@@ -75,7 +74,7 @@ DEEPSEEK_API_KEY=sk-你的key
 ## 项目结构
 
 ```
-makeLangGrap/
+DocPilot/
 ├── app.py                      Streamlit 界面（带执行轨迹面板 + 人工审核）
 ├── requirements.txt
 ├── .env.example                配置模板
