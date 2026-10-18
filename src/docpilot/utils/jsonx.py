@@ -1,7 +1,7 @@
 """
 jsonx.py —— 宽容的 JSON 解析
 
-【为什么需要它？】
+为什么需要它？
 我们让模型输出 JSON，但真实模型经常会这样返回：
 
     ```json
@@ -14,13 +14,6 @@ jsonx.py —— 宽容的 JSON 解析
 
 工程上必须容错 —— 模型输出是不可信输入，永远要做防御性解析。
 这也是为什么不推荐在关键路径上假设"模型一定会按格式返回"。
-
-【面试考点】
-"你怎么让模型稳定输出结构化数据？"
-三条路，按可靠性递增：
-  1. 提示词约束 + 宽容解析（本文件的做法，兼容性最好）
-  2. 用模型的 JSON 模式 / function calling
-  3. 用 with_structured_output(schema) 或 Pydantic 校验 + 失败重试
 """
 
 from __future__ import annotations

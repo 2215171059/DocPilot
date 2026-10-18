@@ -1,26 +1,20 @@
 """
 conditions.py —— 条件边用的「路由器函数」
 
-【条件边是什么？】
+条件边是什么？
 普通边是"执行完 A 一定去 B"。
 条件边是"执行完 A，调用一个函数看看状态，根据返回值决定去 B 还是 C"。
 
 这个函数就是"路口的红绿灯"。它只做判断，不修改状态，也不调用模型 ——
 保持轻量很重要，因为它会被频繁调用。
 
-【LangGraph 里的写法】
+LangGraph 里的写法：
     builder.add_conditional_edges(
         "grade_documents",        # 从哪个节点出发
         after_grade,              # 判断函数
         {"generate": "generate",  # 函数返回值 → 目标节点名
          "rewrite": "rewrite_query"},
     )
-
-【面试考点】
-"状态图里的分支怎么实现？"
-答：节点的返回值和边是分开的 —— 节点负责算，
-条件边负责路由。判断逻辑集中放在这里，
-好处是流程拓扑一眼能看全，不会散落在各个业务函数里。
 """
 
 from __future__ import annotations

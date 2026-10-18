@@ -1,7 +1,7 @@
 """
 s3_react.py —— 阶段 S3：把 S2 的图拆开，一行行手写出来
 
-【这一阶段的目标】
+本阶段目标：
 搞清楚 `create_react_agent` 内部到底画了什么。
 
 它其实就是这张图：
@@ -21,7 +21,7 @@ s3_react.py —— 阶段 S3：把 S2 的图拆开，一行行手写出来
 
 就是两个节点 + 一条条件边 + 一条回边。就这么简单。
 
-【关键的三个知识点】
+关键的三个知识点：
 
 1. 条件边的返回值可以是 END 本身
    {"tools": "tools", END: END} 表示：返回 END 就直接结束。
@@ -35,15 +35,6 @@ s3_react.py —— 阶段 S3：把 S2 的图拆开，一行行手写出来
 3. ToolNode 负责真执行
    模型输出的只是一句"我想调用 xxx"，不会真的执行任何东西。
    真正去跑函数、把结果包装成 ToolMessage 的，是 ToolNode。
-
-【面试考点】
-"ReAct 循环可能出什么问题？"
-- 死循环：模型反复调同一个工具 → 用 recursion_limit 兜底
-- 工具异常：LangGraph 不像老 AgentExecutor 那样吞异常，会抛出来；
-  需要重试策略或 handle_tool_errors
-- 上下文爆炸：每轮工具结果都进消息列表，聊久了 token 会超
-  → 需要上下文裁剪 / 摘要压缩
-- 参数幻觉：模型编造不存在的参数 → 用严格 schema + 校验
 """
 
 from __future__ import annotations

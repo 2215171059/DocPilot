@@ -1,25 +1,19 @@
 """
 state.py —— 整张图的「状态」定义
 
-【一句话理解 State】
+一句话理解 State：
 State 就是一张在整个流程里传来传去的共享便签纸。
 每个节点都能读上面的内容，也能往上面写新内容。
 
-【为什么不能只用一个普通 dict？】
+为什么不能只用一个普通 dict？
 因为 LangGraph 需要知道：当两个节点同时往同一个字段写东西时，该以谁为准？
 这个"合并规则"就叫 reducer（归约函数）。
 
   - 不写 Annotated → 默认是「覆盖」：新值直接盖掉旧值
   - 写 Annotated[list, add] → 变成「追加」：新值拼接到旧值后面
 
-这就是新手最容易踩的坑：消息列表如果忘了加 reducer，
+这是最容易踩的坑：消息列表如果忘了加 reducer，
 第二轮对话时历史消息会凭空消失。
-
-【面试考点】
-"LangGraph 的 State 是什么？reducer 有什么用？"
-参考答法：State 是贯穿图的共享数据结构，用 TypedDict 定义；
-reducer 决定字段的合并语义，默认覆盖，
-用 Annotated[x, add] 可以改成累加，典型场景是多轮对话的消息列表。
 """
 
 from __future__ import annotations

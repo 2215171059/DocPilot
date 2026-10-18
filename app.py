@@ -4,15 +4,15 @@ app.py —— DocPilot 的界面（Streamlit）
 跑法：
     streamlit run app.py
 
-【这个界面存在的意义】
-面试时对方最想看的不是代码，是"这东西真的能跑吗、长什么样"。
-这个界面把图的执行过程摊开给人看：
+这个界面存在的意义：
+这类项目最值得看的地方不是代码，而是"它真的能跑吗、长什么样"。
+界面把图的执行过程摊开：
 左边是对话，右边是"刚才系统到底走了哪几步、每步拿到了什么证据"。
 
-**能看见中间过程**，是 LangGraph 类项目最值得展示的地方。
-很多人的 Demo 只有一问一答，看不出和套壳 ChatGPT 有什么区别。
+**能看见中间过程**，是 LangGraph 类项目最值得展示的部分。
+只有一问一答的 Demo，看不出和套壳 ChatGPT 有什么区别。
 
-【为什么选 Streamlit？】
+为什么选 Streamlit？
 因为在"快速做出可演示界面"这件事上，它几乎没有对手：
 不用写 HTML/CSS/JS，不用起前后端两个进程，一个脚本搞定。
 把省下来的时间花在图的设计上，性价比更高。
@@ -152,7 +152,7 @@ def render_evidence() -> None:
 
 
 def render_graph_shape() -> None:
-    with st.expander("🗺️ 图的形状（面试可以指着这里讲）"):
+    with st.expander("🗺️ 图的形状"):
         graph = get_graph()
         try:
             graph.get_graph().print_ascii()

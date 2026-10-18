@@ -5,13 +5,13 @@ vector.py —— （可选）向量检索器
     pip install chromadb langchain-chroma langchain-huggingface sentence-transformers
 再把 .env 里的 DOCPILOT_RETRIEVER 改成 vector。
 
-【它和 BM25 的本质区别】
+它和 BM25 的本质区别：
 BM25 比的是"字面有没有相同的词"。
 向量检索先把文本映射成一串数字（向量），比的是"意思像不像"。
   用户问："登录不上去"        → 向量能找到"无法完成身份认证"这段
   但 BM25 找不到，因为一个字都没重合
 
-【代价】
+代价：
 一来要跑 embedding 模型（几百 MB，首次下载慢），
 二来对"精确串"（错误码、订单号）反而不如 BM25，
 所以生产上常把两者混起来用。

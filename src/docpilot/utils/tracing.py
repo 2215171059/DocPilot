@@ -1,18 +1,13 @@
 """
 tracing.py —— 执行轨迹收集
 
-【它解决什么问题？】
+它解决什么问题？
 LangGraph 跑起来之后，你只看到最后一句答案，
 "中间到底走了哪些节点、每步花了多久、状态怎么变的"全靠猜。
 
 做法很朴素：每个节点执行完，往 state["trace"] 里追加一条记录
 （trace 字段的 reducer 是 operator.add，所以会自动累加）。
 最后界面就能把整条思考链路画出来。
-
-【面试考点】
-这属于「可观测性（Observability）」。
-可以顺带提一句：生产环境通常直接接 LangSmith，
-自己实现一套的好处是不依赖外部服务，适合本地演示。
 """
 
 from __future__ import annotations

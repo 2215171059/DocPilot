@@ -5,9 +5,9 @@ LangGraph 自带两个很好用的方法：
   - graph.get_graph().print_ascii()  → 终端里画 ASCII 图
   - graph.get_graph().draw_mermaid() → 生成 Mermaid 源码，可贴到 Markdown / 在线编辑器
 
-【强烈建议】
-第一次把图画出来看一眼，你对"节点和边"的理解会瞬间具体起来。
-很多新手卡住就是因为从没看过自己画的图长什么样。
+强烈建议：
+第一次把图画出来看一眼，对"节点和边"的理解会立刻具体起来。
+不画图的时候，图的拓扑很容易记错。
 """
 
 from __future__ import annotations

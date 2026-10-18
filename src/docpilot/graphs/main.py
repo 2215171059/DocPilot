@@ -33,7 +33,7 @@ main.py —— 阶段 S6：完整的主图（记忆 + 人机协同）
                           ▼
                          END
 
-【checkpointer 到底是什么？】
+checkpointer 到底是什么？
 它像一个"自动存档"装置。图每往前走一步，就把当前完整状态写一份到存储里，
 用 thread_id 作为存档槽位编号。
 
@@ -42,12 +42,12 @@ main.py —— 阶段 S6：完整的主图（记忆 + 人机协同）
   2. 断点续跑：程序崩了、人走开了，状态都还在
   3. 时间旅行：get_state_history() 能列出所有历史存档，回到任意一步重跑
 
-存储选型（面试会问）：
+存储选型：
   InMemorySaver   —— 存内存，重启就没，适合开发和测试
   SqliteSaver     —— 存本地文件，单机演示够用
   PostgresSaver   —— 生产环境标配，支持并发和高可用
 
-【为什么 messages 字段能实现"多轮记忆"？】
+为什么 messages 字段能实现"多轮记忆"？
 因为它的 reducer 是 add_messages。
 同一个 thread_id 第二次调用时，LangGraph 把上次的消息列表读回来，
 新消息通过 reducer 追加在后面 —— 于是模型就"记得"之前聊过什么。

@@ -1,24 +1,18 @@
 """
 tools.py —— 给模型用的「工具」
 
-【工具是什么？】
+工具是什么？
 工具就是模型可以主动调用的函数。模型不会自己执行代码，
 它只会输出一句"我想调用 search_knowledge_base，参数是 xxx"，
 真正执行的是 LangGraph 里的 ToolNode。这个分工要分清楚：
   - 模型负责「决定调不调、调哪个、传什么参数」
   - 框架负责「真的去执行，并把结果塞回对话」
 
-【写工具的两个关键点】
+写工具的两个关键点：
 1. 函数的 **docstring 就是工具说明书**，模型靠它判断什么时候该用这个工具。
    所以要写清楚"这个工具是干什么的、什么时候用"，
    而不是写"这是一个函数"这种废话。docstring 建议控制在 1024 字符内。
 2. 参数类型注解要写，LangChain 会据此自动生成 JSON Schema 给模型看。
-
-【面试考点】
-"工具调用失败怎么办？"
-LangGraph 的 ToolNode 不像老的 AgentExecutor 那样默默吞掉异常，
-它会抛出来。生产环境里通常要配重试策略（retry policy），
-或者在 ToolNode 上开 handle_tool_errors=True 把错误变成一条 ToolMessage 交给模型自己处理。
 """
 
 from __future__ import annotations
